@@ -1,0 +1,15 @@
+# Dados em runtime (banco e fotos enviadas)
+data/stewart.db
+data/uploads/
+data/_relatorio_*.pptx
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Sistema
+.DS_Store
+Thumbs.db
