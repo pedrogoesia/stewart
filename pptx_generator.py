@@ -51,8 +51,11 @@ def _find_layout(prs, name):
     raise RuntimeError(f"Layout '{name}' não encontrado no template.")
 
 
-def _replace_text_keep_format(shape, new_text):
-    """Substitui o texto de uma forma preservando a formatação do 1º run."""
+def _replace_text_keep_format(shape, new_text, font_name=None, size=None):
+    """Substitui o texto de uma forma preservando a formatação do 1º run.
+
+    Opcionalmente aplica fonte (font_name) e tamanho em pontos (size).
+    """
     if not shape.has_text_frame:
         return
     tf = shape.text_frame
@@ -62,8 +65,14 @@ def _replace_text_keep_format(shape, new_text):
         # remove runs extras, se houver
         for extra in p.runs[1:]:
             extra._r.getparent().remove(extra._r)
+        run = p.runs[0]
     else:
-        p.add_run().text = new_text
+        run = p.add_run()
+        run.text = new_text
+    if font_name:
+        run.font.name = font_name
+    if size is not None:
+        run.font.size = Pt(size)
 
 
 def _set_cover(slide, obra_nome, endereco, periodo_label):
@@ -76,9 +85,9 @@ def _set_cover(slide, obra_nome, endereco, periodo_label):
             _replace_text_keep_format(
                 shape, f"RELATÓRIO FOTOGRÁFICO – {periodo_label}")
         elif txt == "NOME DA OBRA":
-            _replace_text_keep_format(shape, obra_nome)
+            _replace_text_keep_format(shape, obra_nome, "Helvetica", 19)
         elif txt == "ENDEREÇO DA OBRA":
-            _replace_text_keep_format(shape, endereco or "")
+            _replace_text_keep_format(shape, endereco or "", "Helvetica", 9)
 
 
 def _remove_static_month(prs):
@@ -145,20 +154,24 @@ def _set_caption(slide, idx, text):
         return
     text = text[0].upper() + text[1:]
 
-    sep = " - "
-    if sep in text:
-        prefixo, resto = text.split(sep, 1)
+    # O nome do cômodo é a parte antes do primeiro "-". Ele fica sempre em
+    # negrito + sublinhado; o restante (incluindo o "-") fica em negrito.
+    pos = text.find("-")
+    if pos != -1:
+        nome = text[:pos].rstrip()
+        resto = text[pos:]            # inclui o "-" e o que vem depois
         r1 = p.add_run()
-        r1.text = prefixo
+        r1.text = nome
         r1.font.bold = True
         r1.font.underline = True
         r2 = p.add_run()
-        r2.text = sep + resto
+        r2.text = " " + resto
         r2.font.bold = True
     else:
         r = p.add_run()
         r.text = text
         r.font.bold = True
+        r.font.underline = True
 
 
 def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):

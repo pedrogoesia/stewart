@@ -126,7 +126,18 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--red); outli
 }
 .foto img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #eee; cursor: grab; user-select: none; -webkit-user-drag: none; }
 .foto img:active { cursor: grabbing; }
-.foto.dragging { opacity: .55; outline: 2px dashed var(--red); }
+.foto.dragging {
+  cursor: grabbing;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .3);
+  transform: rotate(1.5deg) scale(1.04);
+  transition: transform .08s ease;
+}
+.foto-placeholder {
+  border: 2px dashed var(--red);
+  border-radius: 10px;
+  background: #fdf4f4;
+}
+body.arrastando { cursor: grabbing; user-select: none; }
 .foto-desc { border: 0; border-top: 1px solid var(--line); border-radius: 0; resize: vertical; min-height: 56px; }
 .foto-desc.saved { background: #effaf1; }
 .foto-del {

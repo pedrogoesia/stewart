@@ -139,7 +139,7 @@ function escapeHtml(s) {
 // -------------------------------------------------- Arrastar / reordenar
 // Implementação própria com Pointer Events (funciona no mouse e no toque),
 // sem depender de bibliotecas externas. A foto é arrastada pela imagem.
-let arrastando = null;
+let arrasto = null;
 
 function habilitarArrasto(grid) {
   grid.querySelectorAll(".foto[data-foto-id]").forEach((item) => {
@@ -153,27 +153,79 @@ function habilitarArrasto(grid) {
 }
 
 function iniciarArrasto(e, grid, item, handle) {
+  if (arrasto || e.button === 2) return;     // ignora clique direito
   e.preventDefault();
-  arrastando = item;
-  item.classList.add("dragging");
-  handle.setPointerCapture(e.pointerId);
+  const rect = item.getBoundingClientRect();
 
-  const mover = (ev) => {
-    const ref = posicaoDestino(grid, ev.clientX, ev.clientY);
-    if (ref == null) grid.appendChild(arrastando);
-    else if (ref !== arrastando) grid.insertBefore(arrastando, ref);
+  // espaço tracejado que mostra onde a foto vai cair
+  const placeholder = document.createElement("div");
+  placeholder.className = "foto-placeholder";
+  placeholder.style.height = rect.height + "px";
+  item.after(placeholder);
+
+  arrasto = {
+    grid, item, handle, placeholder,
+    dx: e.clientX - rect.left,
+    dy: e.clientY - rect.top,
+    moveu: false,
   };
-  const soltar = () => {
-    item.classList.remove("dragging");
-    handle.removeEventListener("pointermove", mover);
-    handle.removeEventListener("pointerup", soltar);
-    handle.removeEventListener("pointercancel", soltar);
-    arrastando = null;
-    salvarOrdem(grid);
-  };
-  handle.addEventListener("pointermove", mover);
-  handle.addEventListener("pointerup", soltar);
-  handle.addEventListener("pointercancel", soltar);
+
+  // a foto "flutua" e segue o ponteiro
+  item.classList.add("dragging");
+  Object.assign(item.style, {
+    width: rect.width + "px",
+    height: rect.height + "px",
+    position: "fixed",
+    margin: "0",
+    zIndex: "1000",
+  });
+  moverFlutuante(e.clientX, e.clientY);
+
+  handle.setPointerCapture(e.pointerId);
+  handle.addEventListener("pointermove", aoMover);
+  handle.addEventListener("pointerup", aoSoltar);
+  handle.addEventListener("pointercancel", aoSoltar);
+  document.body.classList.add("arrastando");
+}
+
+function moverFlutuante(x, y) {
+  arrasto.item.style.left = x - arrasto.dx + "px";
+  arrasto.item.style.top = y - arrasto.dy + "px";
+}
+
+function aoMover(e) {
+  if (!arrasto) return;
+  arrasto.moveu = true;
+  moverFlutuante(e.clientX, e.clientY);
+  rolarSeNecessario(e.clientY);
+  const ref = posicaoDestino(arrasto.grid, e.clientX, e.clientY);
+  if (ref == null) arrasto.grid.appendChild(arrasto.placeholder);
+  else if (ref !== arrasto.placeholder) arrasto.grid.insertBefore(arrasto.placeholder, ref);
+}
+
+// rolagem automática quando arrasta perto do topo/rodapé da tela
+function rolarSeNecessario(y) {
+  const margem = 80;
+  if (y < margem) window.scrollBy(0, -12);
+  else if (y > window.innerHeight - margem) window.scrollBy(0, 12);
+}
+
+function aoSoltar() {
+  if (!arrasto) return;
+  const { grid, item, handle, placeholder } = arrasto;
+  handle.removeEventListener("pointermove", aoMover);
+  handle.removeEventListener("pointerup", aoSoltar);
+  handle.removeEventListener("pointercancel", aoSoltar);
+
+  grid.insertBefore(item, placeholder);
+  placeholder.remove();
+  item.classList.remove("dragging");
+  item.style.cssText = "";
+  document.body.classList.remove("arrastando");
+
+  const moveu = arrasto.moveu;
+  arrasto = null;
+  if (moveu) salvarOrdem(grid);
 }
 
 // Retorna o elemento antes do qual o arrastado deve ser inserido (ou null = fim)
