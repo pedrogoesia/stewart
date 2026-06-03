@@ -57,7 +57,7 @@ def editar_imagem(caminho_entrada, prompt):
             ),
         )
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(f"Erro ao chamar o Gemini: {exc}") from exc
+        raise RuntimeError(_mensagem_amigavel(exc)) from exc
 
     candidatos = getattr(resposta, "candidates", None) or []
     if not candidatos:
@@ -85,6 +85,27 @@ def editar_imagem(caminho_entrada, prompt):
         "O Gemini não devolveu uma imagem editada."
         + (f" Resposta: {detalhe[:300]}" if detalhe else
            " Tente reformular a instrução."))
+
+
+def _mensagem_amigavel(exc):
+    """Transforma erros técnicos do Gemini em mensagens curtas e claras."""
+    txt = str(exc)
+    low = txt.lower()
+    if "resource_exhausted" in low or "429" in txt or "quota" in low:
+        return ("Cota da API do Gemini esgotada ou indisponível para geração "
+                "de imagem. O modelo de imagem normalmente exige um plano pago "
+                "(billing) ativado na sua conta Google. Ative em "
+                "https://aistudio.google.com e tente novamente.")
+    if "permission" in low or "403" in txt or "api key" in low or "api_key" in low:
+        return ("Chave da API inválida ou sem permissão para este modelo. "
+                "Confira o GEMINI_API_KEY no arquivo .env.")
+    if "not found" in low or "404" in txt:
+        return ("Modelo de imagem não encontrado. Ajuste GEMINI_IMAGE_MODEL no "
+                ".env (padrão: gemini-2.5-flash-image).")
+    if "deadline" in low or "timeout" in low or "unavailable" in low:
+        return ("Tempo esgotado / serviço indisponível ao falar com o Gemini. "
+                "Verifique a internet e tente novamente.")
+    return f"Erro ao chamar o Gemini: {txt[:300]}"
 
 
 def _para_jpeg(dados):
