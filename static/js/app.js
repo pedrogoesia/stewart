@@ -259,14 +259,14 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".foto-grid").forEach(habilitarArrasto);
 });
 
-// --------------------------------------------------- Edição por IA (Gemini)
+// --------------------------------------------------- Edição por IA (OpenAI)
 let iaState = null; // { fotoId, gridImg, temPreview }
 
 function abrirEditarIA(fotoId, btn) {
   if (!window.IA_ATIVA) {
     alert("A edição por IA ainda não está configurada.\n\n" +
           "Crie um arquivo .env na pasta do projeto com a linha:\n" +
-          "GEMINI_API_KEY=sua_chave_aqui\n\n" +
+          "OPENAI_API_KEY=sua_chave_aqui\n\n" +
           "Depois reinicie o servidor (python app.py).");
     return;
   }

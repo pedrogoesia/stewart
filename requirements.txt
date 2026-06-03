@@ -1,8 +1,8 @@
 Flask>=3.0
 python-pptx>=1.0
 Pillow>=10.0
-# Edição de fotos por IA (Google Gemini) e leitura do arquivo .env
-google-genai>=1.0
+# Edição de fotos por IA (OpenAI - gpt-image-1) e leitura do arquivo .env
+openai>=1.97
 python-dotenv>=1.0
 # Opcional: suporte a fotos HEIC/HEIF de iPhone
 pillow-heif>=0.16

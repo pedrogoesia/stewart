@@ -18,7 +18,7 @@ permite **baixar todas as fotos em um `.zip` com uma pasta por cômodo**.
   com **2 fotos por slide** agrupadas por cômodo, com a legenda embaixo.
 - 🗂️ **Download das fotos em `.zip`** — uma pasta por cômodo, prontas para
   arquivar no computador.
-- ✨ **Editar foto por IA (Google Gemini)** — descreva a alteração em texto
+- ✨ **Editar foto por IA (OpenAI gpt-image-1)** — descreva a alteração em texto
   (ex.: "remova a vassoura encostada na parede"); o sistema gera a foto editada,
   mostra o **antes/depois** e **só substitui depois que você autorizar**.
 
@@ -61,34 +61,39 @@ Para descobrir o IP: `ipconfig` (Windows) ou `ifconfig`/`ip a` (Linux/macOS).
 5. Escolha **mês/ano** e clique em **⬇ Gerar PowerPoint**.
 6. Opcional: **⬇ Baixar fotos (.zip por cômodo)** para arquivar.
 
-## Edição de fotos por IA (Gemini) — opcional
+## Edição de fotos por IA (OpenAI) — opcional
 
 O sistema funciona normalmente **sem** isso. Para habilitar a edição por prompt:
 
-1. Pegue uma chave gratuita em **https://aistudio.google.com/app/apikey**.
+1. Pegue uma chave em **https://platform.openai.com/api-keys**.
 2. Na pasta do projeto, crie um arquivo **`.env`** (copie o `.env.example`):
    ```powershell
    Copy-Item .env.example .env      # Windows
    # cp .env.example .env           # Mac/Linux
    ```
-3. Abra o `.env` e cole a chave: `GEMINI_API_KEY=sua_chave_aqui`
+3. Abra o `.env` e cole a chave: `OPENAI_API_KEY=sua_chave_aqui`
 4. Reinicie o servidor (`python app.py`).
 
 Depois, em cada foto aparece o botão **✨** — clique, descreva a mudança,
 clique em **Gerar** e, se gostar do resultado, em **Autorizar e aplicar**.
 
 > 🔒 **Segurança:** o arquivo `.env` está no `.gitignore` e nunca vai para o
-> GitHub. Nunca compartilhe sua chave. A edição usa o modelo de imagem do
-> Gemini (padrão `gemini-2.5-flash-image`), configurável via
-> `GEMINI_IMAGE_MODEL` no `.env`.
+> GitHub. Nunca compartilhe sua chave. A edição usa o modelo de imagem da
+> OpenAI (padrão `gpt-image-1`), configurável via `OPENAI_IMAGE_MODEL` no
+> `.env`.
+>
+> ⚠️ O `gpt-image-1` exige que a sua **organização na OpenAI esteja
+> verificada** (verificação de identidade em
+> platform.openai.com/settings/organization/general) e que a conta tenha
+> **créditos**. A cobrança é por imagem gerada.
 
 ## Estrutura do projeto
 
 ```
 app.py               # Servidor web (Flask) + API + banco SQLite
 pptx_generator.py    # Geração do .pptx a partir do template oficial
-ai_edit.py           # Edição de fotos por IA (Google Gemini)
-.env.example         # Modelo de configuração da chave do Gemini
+ai_edit.py           # Edição de fotos por IA (OpenAI gpt-image-1)
+.env.example         # Modelo de configuração da chave da OpenAI
 template/            # TEMPLATE_STEWART.pptx (modelo oficial)
 templates/           # Páginas HTML (index, obra)
 static/              # CSS, JS e logo

@@ -21,7 +21,7 @@ from flask import (Flask, abort, g, jsonify, redirect, render_template,
                    request, send_file, send_from_directory, url_for)
 from PIL import Image, ImageOps
 
-# Carrega variáveis do arquivo .env (ex.: GEMINI_API_KEY), se existir.
+# Carrega variáveis do arquivo .env (ex.: OPENAI_API_KEY), se existir.
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -381,7 +381,7 @@ def servir_foto(filename):
 
 
 # ---------------------------------------------------------------------------
-# Edição de fotos por IA (Gemini)
+# Edição de fotos por IA (OpenAI)
 # ---------------------------------------------------------------------------
 def _preview_rel(arquivo):
     """Caminho relativo da prévia da edição (ainda não aplicada)."""
@@ -400,7 +400,7 @@ def _foto_or_404(foto_id):
 def editar_foto_ia(foto_id):
     if not ia_disponivel():
         return jsonify({"erro": "A edição por IA não está configurada. "
-                        "Crie um arquivo .env com GEMINI_API_KEY."}), 400
+                        "Crie um arquivo .env com OPENAI_API_KEY."}), 400
     foto = _foto_or_404(foto_id)
     prompt = (request.form.get("prompt") or "").strip()
     if not prompt:
