@@ -93,6 +93,9 @@ def close_db(exc):
 def init_db():
     db = sqlite3.connect(DB_PATH)
     db.executescript(SCHEMA)
+    # Migração: normaliza caminhos antigos salvos com "\" (Windows) para "/".
+    db.execute(r"UPDATE fotos SET arquivo = REPLACE(arquivo, '\', '/') "
+               r"WHERE arquivo LIKE '%\%'")
     db.commit()
     db.close()
 
