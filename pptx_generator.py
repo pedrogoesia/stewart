@@ -141,8 +141,7 @@ def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
     """Cria um slide com até 2 fotos (lista de dicts {path, descricao})."""
     slide = prs.slides.add_slide(layout)
 
-    # Cabeçalho: cômodo (esq.) e mês/ano (dir.)
-    _add_header_label(slide, ROOM_BOX, comodo_nome, PP_ALIGN.LEFT)
+    # Cabeçalho: apenas mês/ano à direita (o cômodo já aparece nas legendas).
     _add_header_label(slide, MONTH_BOX, periodo_label, PP_ALIGN.RIGHT)
 
     # Foto da esquerda (sempre existe)

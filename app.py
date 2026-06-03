@@ -117,7 +117,8 @@ def periodo_label(mes, ano):
 
 
 def foto_abs_path(arquivo):
-    return os.path.join(UPLOAD_DIR, arquivo)
+    # O caminho é guardado sempre com "/"; convertemos para o separador do SO.
+    return os.path.join(UPLOAD_DIR, *arquivo.split("/"))
 
 
 def processar_imagem(file_storage, dest_path):
@@ -293,11 +294,15 @@ def upload_foto(comodo_id):
         return jsonify({"erro": "Nenhum arquivo enviado"}), 400
 
     descricao = (request.form.get("descricao") or "").strip()
-    rel_dir = os.path.join(str(comodo["obra_id"]), str(comodo_id))
-    abs_dir = os.path.join(UPLOAD_DIR, rel_dir)
+    # Já inicia a legenda com o nome do cômodo, no modelo "Sala - ".
+    if not descricao:
+        descricao = f"{comodo['nome']} - "
+    # Caminho relativo guardado SEMPRE com "/" (compatível com URL e Windows).
+    rel_dir = f"{comodo['obra_id']}/{comodo_id}"
+    abs_dir = os.path.join(UPLOAD_DIR, str(comodo["obra_id"]), str(comodo_id))
     os.makedirs(abs_dir, exist_ok=True)
     nome_arquivo = f"{uuid.uuid4().hex}.jpg"
-    rel_path = os.path.join(rel_dir, nome_arquivo)
+    rel_path = f"{rel_dir}/{nome_arquivo}"
 
     try:
         processar_imagem(file, os.path.join(abs_dir, nome_arquivo))
