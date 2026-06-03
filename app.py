@@ -22,8 +22,12 @@ from flask import (Flask, abort, g, jsonify, redirect, render_template,
 from PIL import Image, ImageOps
 
 # Carrega variáveis do arquivo .env (ex.: OPENAI_API_KEY), se existir.
+# Procura tanto na pasta do app.py quanto no diretório atual, para funcionar
+# mesmo que o servidor seja iniciado de outro lugar.
 try:
     from dotenv import load_dotenv
+    _aqui = os.path.dirname(os.path.abspath(__file__))
+    load_dotenv(os.path.join(_aqui, ".env"))
     load_dotenv()
 except Exception:
     pass
