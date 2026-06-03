@@ -100,6 +100,7 @@ function fotoTemplate(id, url, descricao) {
     <img src="${url}" loading="lazy" alt="">
     <textarea class="foto-desc" placeholder="Descrição da foto…"
               onchange="salvarDescricao(${id}, this)">${escapeHtml(descricao || "")}</textarea>
+    <button class="foto-ia" title="Editar com IA" onclick="abrirEditarIA(${id}, this)">✨</button>
     <button class="foto-del" title="Remover foto" onclick="excluirFoto(${id}, this)">✕</button>
   </figure>`;
 }
@@ -257,3 +258,79 @@ function salvarOrdem(grid) {
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".foto-grid").forEach(habilitarArrasto);
 });
+
+// --------------------------------------------------- Edição por IA (Gemini)
+let iaState = null; // { fotoId, gridImg, temPreview }
+
+function abrirEditarIA(fotoId, btn) {
+  if (!window.IA_ATIVA) {
+    alert("A edição por IA ainda não está configurada.\n\n" +
+          "Crie um arquivo .env na pasta do projeto com a linha:\n" +
+          "GEMINI_API_KEY=sua_chave_aqui\n\n" +
+          "Depois reinicie o servidor (python app.py).");
+    return;
+  }
+  const gridImg = btn.closest(".foto").querySelector("img");
+  iaState = { fotoId, gridImg, temPreview: false };
+
+  document.getElementById("ia-original").src = gridImg.src;
+  document.getElementById("ia-prompt").value = "";
+  resetarResultadoIA();
+  document.getElementById("ia-modal").showModal();
+  document.getElementById("ia-prompt").focus();
+}
+
+function resetarResultadoIA() {
+  document.getElementById("ia-result-box").innerHTML =
+    '<span class="muted">Gere para ver o resultado aqui</span>';
+  document.getElementById("ia-aplicar").hidden = true;
+  document.getElementById("ia-gerar").disabled = false;
+}
+
+async function gerarIA() {
+  if (!iaState) return;
+  const prompt = document.getElementById("ia-prompt").value.trim();
+  if (!prompt) { document.getElementById("ia-prompt").focus(); return; }
+
+  const box = document.getElementById("ia-result-box");
+  const gerar = document.getElementById("ia-gerar");
+  box.innerHTML = '<div class="spinner"></div><p class="muted">Gerando… ' +
+                  'isso pode levar alguns segundos.</p>';
+  gerar.disabled = true;
+  document.getElementById("ia-aplicar").hidden = true;
+
+  try {
+    const resp = await postForm(`/foto/${iaState.fotoId}/editar-ia`, { prompt });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.erro || "Falha ao gerar.");
+    box.innerHTML = `<img src="${data.preview_url}?t=${Date.now()}" alt="">`;
+    iaState.temPreview = true;
+    document.getElementById("ia-aplicar").hidden = false;
+  } catch (e) {
+    box.innerHTML = `<p class="ia-erro">⚠️ ${escapeHtml(e.message)}</p>`;
+  } finally {
+    gerar.disabled = false;
+  }
+}
+
+async function aplicarIA() {
+  if (!iaState || !iaState.temPreview) return;
+  const resp = await postForm(`/foto/${iaState.fotoId}/aplicar-edicao`, {});
+  const data = await resp.json();
+  if (!resp.ok) { alert(data.erro || "Falha ao aplicar."); return; }
+  // atualiza a foto na tela (cache-bust) e fecha
+  iaState.gridImg.src = data.url + "?t=" + Date.now();
+  iaState.temPreview = false;
+  document.getElementById("ia-modal").close();
+  iaState = null;
+}
+
+async function fecharIA() {
+  // descarta a prévia não aplicada, se houver
+  if (iaState && iaState.temPreview) {
+    try { await postForm(`/foto/${iaState.fotoId}/descartar-edicao`, {}); }
+    catch (e) { /* ignora */ }
+  }
+  document.getElementById("ia-modal").close();
+  iaState = null;
+}

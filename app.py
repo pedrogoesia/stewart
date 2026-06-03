@@ -21,7 +21,15 @@ from flask import (Flask, abort, g, jsonify, redirect, render_template,
                    request, send_file, send_from_directory, url_for)
 from PIL import Image, ImageOps
 
+# Carrega variáveis do arquivo .env (ex.: GEMINI_API_KEY), se existir.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
 from pptx_generator import gerar_relatorio
+from ai_edit import editar_imagem, ia_disponivel
 
 # Suporte opcional a fotos HEIC/HEIF (iPhone), se a lib estiver disponível.
 try:
@@ -184,7 +192,7 @@ def obra_detail(obra_id):
     agora = datetime.now()
     return render_template("obra.html", obra=obra, grupos=grupos,
                            meses=MESES, mes_atual=agora.month,
-                           ano_atual=agora.year)
+                           ano_atual=agora.year, ia_ativa=ia_disponivel())
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +378,76 @@ def excluir_foto(foto_id):
 @app.route("/uploads/<path:filename>")
 def servir_foto(filename):
     return send_from_directory(UPLOAD_DIR, filename)
+
+
+# ---------------------------------------------------------------------------
+# Edição de fotos por IA (Gemini)
+# ---------------------------------------------------------------------------
+def _preview_rel(arquivo):
+    """Caminho relativo da prévia da edição (ainda não aplicada)."""
+    return arquivo + ".preview.jpg"
+
+
+def _foto_or_404(foto_id):
+    foto = get_db().execute("SELECT * FROM fotos WHERE id=?",
+                            (foto_id,)).fetchone()
+    if foto is None:
+        abort(404)
+    return foto
+
+
+@app.route("/foto/<int:foto_id>/editar-ia", methods=["POST"])
+def editar_foto_ia(foto_id):
+    if not ia_disponivel():
+        return jsonify({"erro": "A edição por IA não está configurada. "
+                        "Crie um arquivo .env com GEMINI_API_KEY."}), 400
+    foto = _foto_or_404(foto_id)
+    prompt = (request.form.get("prompt") or "").strip()
+    if not prompt:
+        return jsonify({"erro": "Descreva a alteração desejada."}), 400
+
+    origem = foto_abs_path(foto["arquivo"])
+    if not os.path.exists(origem):
+        return jsonify({"erro": "Arquivo da foto não encontrado."}), 404
+
+    try:
+        novos_bytes = editar_imagem(origem, prompt)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"erro": str(e)}), 502
+
+    preview_rel = _preview_rel(foto["arquivo"])
+    with open(foto_abs_path(preview_rel), "wb") as fh:
+        fh.write(novos_bytes)
+
+    return jsonify({
+        "preview_url": url_for("servir_foto", filename=preview_rel),
+        "original_url": url_for("servir_foto", filename=foto["arquivo"]),
+    })
+
+
+@app.route("/foto/<int:foto_id>/aplicar-edicao", methods=["POST"])
+def aplicar_edicao_ia(foto_id):
+    foto = _foto_or_404(foto_id)
+    preview_abs = foto_abs_path(_preview_rel(foto["arquivo"]))
+    if not os.path.exists(preview_abs):
+        return jsonify({"erro": "Nenhuma prévia para aplicar."}), 400
+    # Substitui o arquivo original pela versão editada (mantém o mesmo nome).
+    os.replace(preview_abs, foto_abs_path(foto["arquivo"]))
+    return jsonify({
+        "ok": True,
+        "url": url_for("servir_foto", filename=foto["arquivo"]),
+    })
+
+
+@app.route("/foto/<int:foto_id>/descartar-edicao", methods=["POST"])
+def descartar_edicao_ia(foto_id):
+    foto = _foto_or_404(foto_id)
+    preview_abs = foto_abs_path(_preview_rel(foto["arquivo"]))
+    try:
+        os.remove(preview_abs)
+    except OSError:
+        pass
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------

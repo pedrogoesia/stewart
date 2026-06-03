@@ -73,6 +73,7 @@
         <img src="{{ url_for('servir_foto', filename=f.arquivo) }}" loading="lazy" alt="">
         <textarea class="foto-desc" placeholder="Descrição da foto…"
                   onchange="salvarDescricao({{ f.id }}, this)">{{ f.descricao }}</textarea>
+        <button class="foto-ia" title="Editar com IA" onclick="abrirEditarIA({{ f.id }}, this)">✨</button>
         <button class="foto-del" title="Remover foto" onclick="excluirFoto({{ f.id }}, this)">✕</button>
       </figure>
       {% endfor %}
@@ -84,6 +85,28 @@
 {% if not grupos %}
 <p class="empty muted" id="sem-comodos">Adicione um cômodo acima para começar a anexar fotos.</p>
 {% endif %}
+
+<dialog id="ia-modal" class="modal modal-ia">
+  <h3>✨ Editar foto com IA</h3>
+  <p class="muted ia-aviso">Descreva o que mudar. A foto só é trocada depois que você autorizar.</p>
+  <div class="ia-images">
+    <figure>
+      <figcaption>Original</figcaption>
+      <img id="ia-original" alt="">
+    </figure>
+    <figure>
+      <figcaption>Resultado da IA</figcaption>
+      <div id="ia-result-box"><span class="muted">Gere para ver o resultado aqui</span></div>
+    </figure>
+  </div>
+  <textarea id="ia-prompt" rows="2"
+            placeholder="Ex.: remova a vassoura encostada na parede"></textarea>
+  <div class="modal-actions">
+    <button type="button" class="btn btn-ghost" onclick="fecharIA()">Fechar</button>
+    <button type="button" class="btn btn-primary" id="ia-gerar" onclick="gerarIA()">Gerar</button>
+    <button type="button" class="btn btn-primary" id="ia-aplicar" onclick="aplicarIA()" hidden>✓ Autorizar e aplicar</button>
+  </div>
+</dialog>
 
 <dialog id="editar-obra" class="modal">
   <form method="post" action="{{ url_for('editar_obra', obra_id=obra.id) }}">
@@ -105,6 +128,7 @@
 {% block scripts %}
 <script>
   window.OBRA_ID = {{ obra.id }};
+  window.IA_ATIVA = {{ 'true' if ia_ativa else 'false' }};
 </script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% endblock %}

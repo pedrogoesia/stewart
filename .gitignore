@@ -1,3 +1,6 @@
+# Segredos / configuração local
+.env
+
 # Dados em runtime (banco e fotos enviadas)
 data/stewart.db
 data/uploads/

@@ -18,6 +18,9 @@ permite **baixar todas as fotos em um `.zip` com uma pasta por cômodo**.
   com **2 fotos por slide** agrupadas por cômodo, com a legenda embaixo.
 - 🗂️ **Download das fotos em `.zip`** — uma pasta por cômodo, prontas para
   arquivar no computador.
+- ✨ **Editar foto por IA (Google Gemini)** — descreva a alteração em texto
+  (ex.: "remova a vassoura encostada na parede"); o sistema gera a foto editada,
+  mostra o **antes/depois** e **só substitui depois que você autorizar**.
 
 > O relatório é sempre gerado em **PowerPoint (.pptx)**, nunca em PDF — assim a
 > equipe pode editar/ajustar antes de enviar.
@@ -58,11 +61,34 @@ Para descobrir o IP: `ipconfig` (Windows) ou `ifconfig`/`ip a` (Linux/macOS).
 5. Escolha **mês/ano** e clique em **⬇ Gerar PowerPoint**.
 6. Opcional: **⬇ Baixar fotos (.zip por cômodo)** para arquivar.
 
+## Edição de fotos por IA (Gemini) — opcional
+
+O sistema funciona normalmente **sem** isso. Para habilitar a edição por prompt:
+
+1. Pegue uma chave gratuita em **https://aistudio.google.com/app/apikey**.
+2. Na pasta do projeto, crie um arquivo **`.env`** (copie o `.env.example`):
+   ```powershell
+   Copy-Item .env.example .env      # Windows
+   # cp .env.example .env           # Mac/Linux
+   ```
+3. Abra o `.env` e cole a chave: `GEMINI_API_KEY=sua_chave_aqui`
+4. Reinicie o servidor (`python app.py`).
+
+Depois, em cada foto aparece o botão **✨** — clique, descreva a mudança,
+clique em **Gerar** e, se gostar do resultado, em **Autorizar e aplicar**.
+
+> 🔒 **Segurança:** o arquivo `.env` está no `.gitignore` e nunca vai para o
+> GitHub. Nunca compartilhe sua chave. A edição usa o modelo de imagem do
+> Gemini (padrão `gemini-2.5-flash-image`), configurável via
+> `GEMINI_IMAGE_MODEL` no `.env`.
+
 ## Estrutura do projeto
 
 ```
 app.py               # Servidor web (Flask) + API + banco SQLite
 pptx_generator.py    # Geração do .pptx a partir do template oficial
+ai_edit.py           # Edição de fotos por IA (Google Gemini)
+.env.example         # Modelo de configuração da chave do Gemini
 template/            # TEMPLATE_STEWART.pptx (modelo oficial)
 templates/           # Páginas HTML (index, obra)
 static/              # CSS, JS e logo
