@@ -64,6 +64,9 @@
       <span class="dropzone-inner">📷 Adicionar fotos &nbsp;<small>(toque para tirar foto ou escolher da galeria)</small></span>
     </label>
 
+    {% if grupo.fotos|length > 1 %}
+    <p class="drag-hint">↕ Arraste as fotos pela imagem para mudar a ordem (é a ordem que sai no PowerPoint).</p>
+    {% endif %}
     <div class="foto-grid" data-grid="{{ c.id }}">
       {% for f in grupo.fotos %}
       <figure class="foto" data-foto-id="{{ f.id }}">

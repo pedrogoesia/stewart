@@ -327,6 +327,22 @@ def upload_foto(comodo_id):
     })
 
 
+@app.route("/comodo/<int:comodo_id>/reordenar", methods=["POST"])
+def reordenar_fotos(comodo_id):
+    """Recebe os ids das fotos na nova ordem e atualiza o campo 'ordem'.
+
+    Essa ordem é a que vale no relatório PowerPoint e no .zip.
+    """
+    ids = request.form.get("ordem", "")
+    id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    db = get_db()
+    for posicao, foto_id in enumerate(id_list):
+        db.execute("UPDATE fotos SET ordem=? WHERE id=? AND comodo_id=?",
+                   (posicao, foto_id, comodo_id))
+    db.commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/foto/<int:foto_id>/descricao", methods=["POST"])
 def atualizar_descricao(foto_id):
     descricao = (request.form.get("descricao") or "").strip()

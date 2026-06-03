@@ -42,6 +42,7 @@ function comodoTemplate(id, nome) {
              onchange="enviarFotos(this, ${id})" hidden>
       <span class="dropzone-inner">📷 Adicionar fotos &nbsp;<small>(toque para tirar foto ou escolher da galeria)</small></span>
     </label>
+    <p class="drag-hint" hidden>↕ Arraste as fotos pela imagem para mudar a ordem (é a ordem que sai no PowerPoint).</p>
     <div class="foto-grid" data-grid="${id}"></div>
   </section>`;
 }
@@ -89,6 +90,7 @@ async function enviarFotos(input, comodoId) {
       ph.outerHTML = `<figure class="foto foto-erro" title="${e.message}">⚠️ Erro</figure>`;
     }
     atualizarContagem(comodoId);
+    habilitarArrasto(grid);
   }
 }
 
@@ -124,6 +126,8 @@ function atualizarContagem(comodoId) {
   const sec = document.querySelector(`[data-comodo-id="${comodoId}"]`);
   const n = sec.querySelectorAll(".foto[data-foto-id]").length;
   sec.querySelector(".foto-count").textContent = `${n} foto(s)`;
+  const hint = sec.querySelector(".drag-hint");
+  if (hint) hint.hidden = n < 2;
 }
 
 function escapeHtml(s) {
@@ -131,3 +135,73 @@ function escapeHtml(s) {
   d.textContent = s;
   return d.innerHTML;
 }
+
+// -------------------------------------------------- Arrastar / reordenar
+// Implementação própria com Pointer Events (funciona no mouse e no toque),
+// sem depender de bibliotecas externas. A foto é arrastada pela imagem.
+let arrastando = null;
+
+function habilitarArrasto(grid) {
+  grid.querySelectorAll(".foto[data-foto-id]").forEach((item) => {
+    if (item.dataset.dragReady) return;
+    item.dataset.dragReady = "1";
+    const handle = item.querySelector("img");
+    if (!handle) return;
+    handle.style.touchAction = "none";
+    handle.addEventListener("pointerdown", (e) => iniciarArrasto(e, grid, item, handle));
+  });
+}
+
+function iniciarArrasto(e, grid, item, handle) {
+  e.preventDefault();
+  arrastando = item;
+  item.classList.add("dragging");
+  handle.setPointerCapture(e.pointerId);
+
+  const mover = (ev) => {
+    const ref = posicaoDestino(grid, ev.clientX, ev.clientY);
+    if (ref == null) grid.appendChild(arrastando);
+    else if (ref !== arrastando) grid.insertBefore(arrastando, ref);
+  };
+  const soltar = () => {
+    item.classList.remove("dragging");
+    handle.removeEventListener("pointermove", mover);
+    handle.removeEventListener("pointerup", soltar);
+    handle.removeEventListener("pointercancel", soltar);
+    arrastando = null;
+    salvarOrdem(grid);
+  };
+  handle.addEventListener("pointermove", mover);
+  handle.addEventListener("pointerup", soltar);
+  handle.addEventListener("pointercancel", soltar);
+}
+
+// Retorna o elemento antes do qual o arrastado deve ser inserido (ou null = fim)
+function posicaoDestino(grid, x, y) {
+  const itens = [...grid.querySelectorAll(".foto:not(.dragging)")];
+  let maisProximo = Infinity;
+  let ref = null;
+  for (const it of itens) {
+    const b = it.getBoundingClientRect();
+    const cx = b.left + b.width / 2;
+    const cy = b.top + b.height / 2;
+    const dist = Math.hypot(x - cx, y - cy);
+    if (dist < maisProximo) {
+      maisProximo = dist;
+      ref = x < cx ? it : it.nextElementSibling;
+    }
+  }
+  return ref;
+}
+
+function salvarOrdem(grid) {
+  const ids = [...grid.querySelectorAll(".foto[data-foto-id]")]
+    .map((f) => f.dataset.fotoId);
+  if (ids.length) postForm(`/comodo/${grid.dataset.grid}/reordenar`,
+                           { ordem: ids.join(",") });
+}
+
+// Inicializa o arrasto nas grades já existentes ao carregar a página.
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".foto-grid").forEach(habilitarArrasto);
+});

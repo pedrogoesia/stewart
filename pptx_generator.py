@@ -127,14 +127,38 @@ def _delete_slide(prs, index):
 
 
 def _set_caption(slide, idx, text):
+    """
+    Define a legenda da foto com formatação:
+      - tudo em negrito;
+      - o nome do cômodo (parte antes do primeiro " - ") também sublinhado;
+      - primeira letra em maiúscula.
+    """
     ph = _placeholder(slide, idx)
     if ph is None:
         return
-    if text:
-        ph.text_frame.text = text
+    tf = ph.text_frame
+    tf.clear()
+    p = tf.paragraphs[0]
+
+    text = (text or "").strip()
+    if not text:
+        return
+    text = text[0].upper() + text[1:]
+
+    sep = " - "
+    if sep in text:
+        prefixo, resto = text.split(sep, 1)
+        r1 = p.add_run()
+        r1.text = prefixo
+        r1.font.bold = True
+        r1.font.underline = True
+        r2 = p.add_run()
+        r2.text = sep + resto
+        r2.font.bold = True
     else:
-        # legenda vazia: limpa o texto-modelo herdado do layout
-        ph.text_frame.text = ""
+        r = p.add_run()
+        r.text = text
+        r.font.bold = True
 
 
 def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
