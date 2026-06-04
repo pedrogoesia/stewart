@@ -8,6 +8,10 @@ permite **baixar todas as fotos em um `.zip` com uma pasta por cômodo**.
 
 ## Funcionalidades
 
+- 🔐 **Login por usuário** — cada pessoa entra com email e senha e vê **apenas
+  as próprias obras**. O administrador cria os usuários; cada um pode alterar o
+  próprio nome, email e senha em "Minha conta". As senhas são guardadas com
+  hash (nunca em texto puro).
 - 📁 **Várias obras** — cada obra com nome e endereço.
 - 🚪 **Organização por cômodo** — Sala, Cozinha, Banheiro, etc.
 - 📷 **Upload pelo celular ou computador** — tirar foto na hora (câmera) ou
@@ -45,6 +49,24 @@ python app.py
 ```
 
 Depois abra **http://localhost:5000** no navegador.
+
+### Primeiro acesso (login)
+
+Na primeira vez que o sistema sobe, ele cria um usuário administrador:
+
+- **Email:** `admin@stewart.local` (ou o valor de `ADMIN_EMAIL` no `.env`)
+- **Senha:** `admin` (ou o valor de `ADMIN_SENHA` no `.env`)
+
+Entre com esse usuário, vá em **"Minha conta"** e troque a senha. Depois, em
+**"Usuários"**, crie as contas das demais pessoas da equipe.
+
+### Banco de dados
+
+- **Local (desenvolvimento):** SQLite, sem configurar nada (arquivo
+  `data/stewart.db`).
+- **Produção (online):** PostgreSQL — defina `DATABASE_URL` no `.env` com a URL
+  fornecida pela hospedagem. O mesmo código funciona nos dois.
+- Defina também `SECRET_KEY` (chave longa e aleatória) ao publicar.
 
 ### Usando pelo celular
 

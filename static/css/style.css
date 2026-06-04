@@ -38,6 +38,16 @@ body {
 .brand-logo { height: 26px; background: #fff; padding: 4px 8px; border-radius: 6px; }
 .brand-text { font-weight: 600; font-size: 1.05rem; letter-spacing: .2px; }
 
+/* Menu de usuário (canto direito da barra do topo) */
+.user-menu { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.user-link { color: #fff; text-decoration: none; font-size: .9rem; opacity: .92; }
+.user-link:hover { opacity: 1; text-decoration: underline; }
+.user-email {
+  color: #fff; font-size: .85rem; opacity: .8; max-width: 180px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+@media (max-width: 560px) { .user-email { display: none; } }
+
 .container { max-width: 1100px; margin: 0 auto; padding: 20px 16px 64px; }
 
 /* ----------------------------------------------------------- Headings */
@@ -272,6 +282,32 @@ body.arrastando { cursor: grabbing; user-select: none; }
 
 .empty { text-align: center; padding: 48px 16px; }
 .empty .btn { margin-top: 12px; }
+
+/* ----------------------------------------------------------- Login / conta */
+.auth-wrap { display: flex; justify-content: center; padding: 24px 0; }
+.auth-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 28px; width: min(420px, 100%);
+}
+.auth-card h1 { margin: 0 0 6px; font-size: 1.5rem; }
+.auth-card form { margin-top: 18px; }
+.auth-card label { display: flex; flex-direction: column; gap: 6px; font-size: .85rem; color: var(--muted); margin-bottom: 14px; }
+.auth-submit { width: 100%; margin-top: 4px; }
+.auth-sep { border: 0; border-top: 1px solid var(--line); margin: 4px 0 16px; }
+.auth-erro { color: var(--red); font-weight: 600; background: #fdecec; border: 1px solid #f5c6c6; padding: 10px 12px; border-radius: 8px; }
+.auth-ok { color: #14803c; font-weight: 600; background: #effaf1; border: 1px solid #bfe6c8; padding: 10px 12px; border-radius: 8px; }
+
+/* ----------------------------------------------------------- Tabela (admin) */
+.tabela-wrap { overflow-x: auto; }
+.tabela { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.tabela th, .tabela td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tabela th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.badge-admin { background: var(--red); color: #fff; }
+.acoes-cel { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.acao-senha { display: flex; gap: 6px; align-items: center; margin: 0; }
+.acao-senha input { width: 130px; padding: 6px 10px; font-size: .85rem; }
+.check-inline { flex-direction: row !important; align-items: center; gap: 8px !important; color: var(--ink) !important; }
+.check-inline input { width: auto; }
 
 @media (max-width: 560px) {
   .page-head { flex-direction: column; }

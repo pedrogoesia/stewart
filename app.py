@@ -2,28 +2,39 @@
 Stewart Construtora — Sistema de Relatórios Fotográficos de Obras.
 
 Aplicação web (celular + computador) para:
+  - login de usuários (cada um vê apenas as próprias obras);
   - cadastrar obras;
   - anexar fotos organizadas por cômodo, com descrição (legenda) em cada foto;
   - gerar o relatório mensal em PowerPoint (.pptx) usando o template oficial;
   - baixar todas as fotos em um .zip com uma pasta por cômodo.
+
+Banco de dados:
+  - Desenvolvimento (no seu PC): SQLite, um arquivo em data/stewart.db.
+  - Produção (online): PostgreSQL — basta definir a variável DATABASE_URL.
+  O mesmo código roda nos dois graças ao SQLAlchemy.
 """
 
 import io
 import os
 import re
-import sqlite3
 import unicodedata
 import uuid
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
-from flask import (Flask, abort, g, jsonify, redirect, render_template,
-                   request, send_file, send_from_directory, url_for)
+from flask import (Flask, abort, jsonify, redirect, render_template, request,
+                   send_file, send_from_directory, url_for)
+from flask_login import (LoginManager, UserMixin, current_user, login_required,
+                         login_user, logout_user)
+from flask_sqlalchemy import SQLAlchemy
 from PIL import Image, ImageOps
+from sqlalchemy import inspect, text
+from werkzeug.security import check_password_hash, generate_password_hash
 
-# Carrega variáveis do arquivo .env (ex.: OPENAI_API_KEY), se existir.
-# Procura tanto na pasta do app.py quanto no diretório atual, para funcionar
-# mesmo que o servidor seja iniciado de outro lugar.
+# Carrega variáveis do arquivo .env (ex.: OPENAI_API_KEY, SECRET_KEY,
+# DATABASE_URL), se existir. Procura tanto na pasta do app.py quanto no
+# diretório atual, para funcionar mesmo iniciando o servidor de outro lugar.
 try:
     from dotenv import load_dotenv
     _aqui = os.path.dirname(os.path.abspath(__file__))
@@ -56,60 +67,155 @@ MESES = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO",
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+
+def _database_url():
+    """Monta a URL do banco. Usa DATABASE_URL (produção) ou SQLite (local)."""
+    url = os.environ.get("DATABASE_URL", "").strip()
+    if url:
+        # Provedores como Render/Railway entregam "postgres://...";
+        # o SQLAlchemy precisa do driver explícito "postgresql+psycopg://".
+        if url.startswith("postgres://"):
+            url = "postgresql+psycopg://" + url[len("postgres://"):]
+        elif url.startswith("postgresql://"):
+            url = "postgresql+psycopg://" + url[len("postgresql://"):]
+        return url
+    return "sqlite:///" + Path(DB_PATH).as_posix()
+
+
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB por upload
+app.config["SQLALCHEMY_DATABASE_URI"] = _database_url()
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
+
+# Chave usada para assinar o cookie de sessão (login). EM PRODUÇÃO defina
+# SECRET_KEY no .env com um valor longo e aleatório.
+_secret = os.environ.get("SECRET_KEY", "").strip()
+if not _secret:
+    _secret = "dev-inseguro-troque-em-producao"
+    print("[AVISO] SECRET_KEY não definida — usando chave de desenvolvimento. "
+          "Defina SECRET_KEY no .env antes de publicar.")
+app.config["SECRET_KEY"] = _secret
+
+db = SQLAlchemy(app)
+
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+login_manager.login_message = "Faça login para acessar esta página."
 
 
 # ---------------------------------------------------------------------------
-# Banco de dados (SQLite)
+# Modelos (tabelas do banco)
 # ---------------------------------------------------------------------------
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS obras (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome      TEXT NOT NULL,
-    endereco  TEXT DEFAULT '',
-    criado_em TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS comodos (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    obra_id INTEGER NOT NULL REFERENCES obras(id) ON DELETE CASCADE,
-    nome    TEXT NOT NULL,
-    ordem   INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS fotos (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    comodo_id INTEGER NOT NULL REFERENCES comodos(id) ON DELETE CASCADE,
-    arquivo   TEXT NOT NULL,
-    descricao TEXT DEFAULT '',
-    ordem     INTEGER NOT NULL DEFAULT 0,
-    criado_em TEXT NOT NULL
-);
-"""
+class Usuario(UserMixin, db.Model):
+    __tablename__ = "usuarios"
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    nome = db.Column(db.String(255), default="")
+    senha_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    criado_em = db.Column(db.String(40), nullable=False)
+
+    obras = db.relationship("Obra", backref="usuario",
+                            cascade="all, delete-orphan")
+
+    def definir_senha(self, senha):
+        self.senha_hash = generate_password_hash(senha)
+
+    def conferir_senha(self, senha):
+        return check_password_hash(self.senha_hash, senha or "")
 
 
-def get_db():
-    if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
-    return g.db
+class Obra(db.Model):
+    __tablename__ = "obras"
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"),
+                           nullable=False, index=True)
+    nome = db.Column(db.String(255), nullable=False)
+    endereco = db.Column(db.String(255), default="")
+    criado_em = db.Column(db.String(40), nullable=False)
+
+    comodos = db.relationship("Comodo", backref="obra",
+                              cascade="all, delete-orphan")
 
 
-@app.teardown_appcontext
-def close_db(exc):
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
+class Comodo(db.Model):
+    __tablename__ = "comodos"
+    id = db.Column(db.Integer, primary_key=True)
+    obra_id = db.Column(db.Integer, db.ForeignKey("obras.id"),
+                        nullable=False, index=True)
+    nome = db.Column(db.String(255), nullable=False)
+    ordem = db.Column(db.Integer, nullable=False, default=0)
+
+    fotos = db.relationship("Foto", backref="comodo",
+                            cascade="all, delete-orphan")
 
 
+class Foto(db.Model):
+    __tablename__ = "fotos"
+    id = db.Column(db.Integer, primary_key=True)
+    comodo_id = db.Column(db.Integer, db.ForeignKey("comodos.id"),
+                          nullable=False, index=True)
+    arquivo = db.Column(db.String(500), nullable=False)
+    descricao = db.Column(db.Text, default="")
+    ordem = db.Column(db.Integer, nullable=False, default=0)
+    criado_em = db.Column(db.String(40), nullable=False)
+
+
+@login_manager.user_loader
+def carregar_usuario(user_id):
+    return db.session.get(Usuario, int(user_id))
+
+
+# ---------------------------------------------------------------------------
+# Inicialização do banco (cria tabelas, migra dados antigos e cria o admin)
+# ---------------------------------------------------------------------------
 def init_db():
-    db = sqlite3.connect(DB_PATH)
-    db.executescript(SCHEMA)
-    # Migração: normaliza caminhos antigos salvos com "\" (Windows) para "/".
-    db.execute(r"UPDATE fotos SET arquivo = REPLACE(arquivo, '\', '/') "
-               r"WHERE arquivo LIKE '%\%'")
-    db.commit()
-    db.close()
+    with app.app_context():
+        db.create_all()
+        _migrar_obras_antigas()
+        _criar_admin_inicial()
+
+
+def _migrar_obras_antigas():
+    """Bancos antigos (antes do login) têm 'obras' sem a coluna usuario_id.
+    Adiciona a coluna para não perder os dados já cadastrados."""
+    insp = inspect(db.engine)
+    if not insp.has_table("obras"):
+        return
+    colunas = [c["name"] for c in insp.get_columns("obras")]
+    if "usuario_id" not in colunas:
+        db.session.execute(text("ALTER TABLE obras ADD COLUMN usuario_id INTEGER"))
+        db.session.commit()
+    # Normaliza caminhos antigos salvos com "\" (Windows) para "/".
+    db.session.execute(text(
+        r"UPDATE fotos SET arquivo = REPLACE(arquivo, '\', '/') "
+        r"WHERE arquivo LIKE '%\%'"))
+    db.session.commit()
+
+
+def _criar_admin_inicial():
+    """Cria o primeiro usuário administrador se ainda não houver nenhum usuário,
+    e adota as obras 'órfãs' (de antes do login) para esse admin."""
+    if Usuario.query.count() == 0:
+        email = os.environ.get("ADMIN_EMAIL", "admin@stewart.local").strip().lower()
+        senha = os.environ.get("ADMIN_SENHA", "admin")
+        admin = Usuario(email=email, nome="Administrador", is_admin=True,
+                        criado_em=datetime.now().isoformat())
+        admin.definir_senha(senha)
+        db.session.add(admin)
+        db.session.commit()
+        print("[INFO] Usuário administrador criado.")
+        print(f"       Email: {email}")
+        if not os.environ.get("ADMIN_SENHA"):
+            print("       Senha: admin   <-- TROQUE em 'Minha conta' após entrar!")
+
+    admin = Usuario.query.filter_by(is_admin=True).order_by(Usuario.id).first()
+    if admin:
+        orfas = Obra.query.filter(Obra.usuario_id.is_(None)).all()
+        for o in orfas:
+            o.usuario_id = admin.id
+        if orfas:
+            db.session.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -148,51 +254,201 @@ def processar_imagem(file_storage, dest_path):
     img.save(dest_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
 
 
-def obra_or_404(obra_id):
-    obra = get_db().execute("SELECT * FROM obras WHERE id=?",
-                            (obra_id,)).fetchone()
-    if obra is None:
+# ---- Busca com verificação de dono (só o dono — ou admin — acessa) --------
+def obra_do_usuario(obra_id):
+    obra = db.session.get(Obra, obra_id)
+    if obra is None or not _pode_acessar(obra.usuario_id):
         abort(404)
     return obra
 
 
-def comodos_com_fotos(obra_id):
-    db = get_db()
-    comodos = db.execute(
-        "SELECT * FROM comodos WHERE obra_id=? ORDER BY ordem, id",
-        (obra_id,)).fetchall()
-    resultado = []
-    for c in comodos:
-        fotos = db.execute(
-            "SELECT * FROM fotos WHERE comodo_id=? ORDER BY ordem, id",
-            (c["id"],)).fetchall()
-        resultado.append({"comodo": c, "fotos": fotos})
-    return resultado
+def comodo_do_usuario(comodo_id):
+    comodo = db.session.get(Comodo, comodo_id)
+    if comodo is None or not _pode_acessar(comodo.obra.usuario_id):
+        abort(404)
+    return comodo
+
+
+def foto_do_usuario(foto_id):
+    foto = db.session.get(Foto, foto_id)
+    if foto is None or not _pode_acessar(foto.comodo.obra.usuario_id):
+        abort(404)
+    return foto
+
+
+def _pode_acessar(usuario_id):
+    return current_user.is_authenticated and (
+        usuario_id == current_user.id or current_user.is_admin)
+
+
+def comodos_com_fotos(obra):
+    grupos = []
+    for c in sorted(obra.comodos, key=lambda c: (c.ordem, c.id)):
+        fotos = sorted(c.fotos, key=lambda f: (f.ordem, f.id))
+        grupos.append({"comodo": c, "fotos": fotos})
+    return grupos
+
+
+def _remover_arquivos_da_obra(obra):
+    for c in obra.comodos:
+        for f in c.fotos:
+            try:
+                os.remove(foto_abs_path(f.arquivo))
+            except OSError:
+                pass
+
+
+def _destino_seguro(target):
+    """Evita redirecionamento aberto: só aceita caminhos internos."""
+    if target and target.startswith("/") and not target.startswith("//"):
+        return target
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Autenticação
+# ---------------------------------------------------------------------------
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        senha = request.form.get("senha") or ""
+        usuario = Usuario.query.filter_by(email=email).first()
+        if usuario and usuario.conferir_senha(senha):
+            login_user(usuario)
+            destino = _destino_seguro(request.args.get("next"))
+            return redirect(destino or url_for("index"))
+        return render_template("login.html", erro="Email ou senha inválidos.")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
+
+
+@app.route("/conta", methods=["GET", "POST"])
+@login_required
+def conta():
+    if request.method == "POST":
+        nome = (request.form.get("nome") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        senha_atual = request.form.get("senha_atual") or ""
+        nova_senha = request.form.get("nova_senha") or ""
+
+        # Por segurança, exige a senha atual para qualquer alteração.
+        if not current_user.conferir_senha(senha_atual):
+            return render_template("conta.html", erro="Senha atual incorreta.")
+        if email and email != current_user.email:
+            existe = Usuario.query.filter(Usuario.email == email,
+                                          Usuario.id != current_user.id).first()
+            if existe:
+                return render_template("conta.html", erro="Esse email já está em uso.")
+            current_user.email = email
+        current_user.nome = nome
+        if nova_senha:
+            current_user.definir_senha(nova_senha)
+        db.session.commit()
+        return render_template("conta.html", ok=True)
+    return render_template("conta.html")
+
+
+# ---------------------------------------------------------------------------
+# Administração de usuários (somente admin cria/remove contas)
+# ---------------------------------------------------------------------------
+def _exige_admin():
+    if not current_user.is_admin:
+        abort(403)
+
+
+@app.route("/admin/usuarios")
+@login_required
+def admin_usuarios():
+    _exige_admin()
+    usuarios = Usuario.query.order_by(Usuario.id).all()
+    return render_template("admin_usuarios.html", usuarios=usuarios)
+
+
+@app.route("/admin/usuarios/criar", methods=["POST"])
+@login_required
+def admin_criar_usuario():
+    _exige_admin()
+    email = (request.form.get("email") or "").strip().lower()
+    nome = (request.form.get("nome") or "").strip()
+    senha = request.form.get("senha") or ""
+    is_admin = request.form.get("is_admin") == "on"
+    if not email or not senha:
+        return _admin_msg("Informe email e senha.", erro=True)
+    if Usuario.query.filter_by(email=email).first():
+        return _admin_msg("Já existe um usuário com esse email.", erro=True)
+    usuario = Usuario(email=email, nome=nome, is_admin=is_admin,
+                      criado_em=datetime.now().isoformat())
+    usuario.definir_senha(senha)
+    db.session.add(usuario)
+    db.session.commit()
+    return _admin_msg(f"Usuário {email} criado.")
+
+
+@app.route("/admin/usuarios/<int:user_id>/senha", methods=["POST"])
+@login_required
+def admin_redefinir_senha(user_id):
+    _exige_admin()
+    usuario = db.session.get(Usuario, user_id) or abort(404)
+    nova = request.form.get("senha") or ""
+    if not nova:
+        return _admin_msg("Informe a nova senha.", erro=True)
+    usuario.definir_senha(nova)
+    db.session.commit()
+    return _admin_msg(f"Senha de {usuario.email} redefinida.")
+
+
+@app.route("/admin/usuarios/<int:user_id>/excluir", methods=["POST"])
+@login_required
+def admin_excluir_usuario(user_id):
+    _exige_admin()
+    if user_id == current_user.id:
+        return _admin_msg("Você não pode excluir a própria conta.", erro=True)
+    usuario = db.session.get(Usuario, user_id) or abort(404)
+    for obra in usuario.obras:
+        _remover_arquivos_da_obra(obra)
+    db.session.delete(usuario)
+    db.session.commit()
+    return _admin_msg(f"Usuário {usuario.email} excluído.")
+
+
+def _admin_msg(msg, erro=False):
+    usuarios = Usuario.query.order_by(Usuario.id).all()
+    chave = "erro" if erro else "ok"
+    return render_template("admin_usuarios.html", usuarios=usuarios, **{chave: msg})
 
 
 # ---------------------------------------------------------------------------
 # Páginas
 # ---------------------------------------------------------------------------
 @app.route("/")
+@login_required
 def index():
-    db = get_db()
-    obras = db.execute("""
-        SELECT o.*,
-               (SELECT COUNT(*) FROM fotos f
-                  JOIN comodos c ON c.id = f.comodo_id
-                 WHERE c.obra_id = o.id) AS total_fotos,
-               (SELECT COUNT(*) FROM comodos c WHERE c.obra_id = o.id)
-                 AS total_comodos
-          FROM obras o
-      ORDER BY o.id DESC
-    """).fetchall()
-    return render_template("index.html", obras=obras)
+    obras = (Obra.query.filter_by(usuario_id=current_user.id)
+             .order_by(Obra.id.desc()).all())
+    dados = []
+    for o in obras:
+        dados.append({
+            "id": o.id, "nome": o.nome, "endereco": o.endereco,
+            "total_comodos": len(o.comodos),
+            "total_fotos": sum(len(c.fotos) for c in o.comodos),
+        })
+    return render_template("index.html", obras=dados)
 
 
 @app.route("/obra/<int:obra_id>")
+@login_required
 def obra_detail(obra_id):
-    obra = obra_or_404(obra_id)
-    grupos = comodos_com_fotos(obra_id)
+    obra = obra_do_usuario(obra_id)
+    grupos = comodos_com_fotos(obra)
     agora = datetime.now()
     return render_template("obra.html", obra=obra, grupos=grupos,
                            meses=MESES, mes_atual=agora.month,
@@ -203,47 +459,36 @@ def obra_detail(obra_id):
 # API — Obras
 # ---------------------------------------------------------------------------
 @app.route("/obras", methods=["POST"])
+@login_required
 def criar_obra():
     nome = (request.form.get("nome") or "").strip()
     endereco = (request.form.get("endereco") or "").strip()
     if not nome:
         return redirect(url_for("index"))
-    db = get_db()
-    db.execute(
-        "INSERT INTO obras (nome, endereco, criado_em) VALUES (?,?,?)",
-        (nome, endereco, datetime.now().isoformat()))
-    db.commit()
+    obra = Obra(usuario_id=current_user.id, nome=nome, endereco=endereco,
+                criado_em=datetime.now().isoformat())
+    db.session.add(obra)
+    db.session.commit()
     return redirect(url_for("index"))
 
 
 @app.route("/obra/<int:obra_id>/editar", methods=["POST"])
+@login_required
 def editar_obra(obra_id):
-    obra_or_404(obra_id)
-    nome = (request.form.get("nome") or "").strip()
-    endereco = (request.form.get("endereco") or "").strip()
-    db = get_db()
-    db.execute("UPDATE obras SET nome=?, endereco=? WHERE id=?",
-               (nome, endereco, obra_id))
-    db.commit()
+    obra = obra_do_usuario(obra_id)
+    obra.nome = (request.form.get("nome") or "").strip()
+    obra.endereco = (request.form.get("endereco") or "").strip()
+    db.session.commit()
     return redirect(url_for("obra_detail", obra_id=obra_id))
 
 
 @app.route("/obra/<int:obra_id>/excluir", methods=["POST"])
+@login_required
 def excluir_obra(obra_id):
-    obra_or_404(obra_id)
-    db = get_db()
-    # remove arquivos físicos
-    fotos = db.execute("""
-        SELECT f.arquivo FROM fotos f
-          JOIN comodos c ON c.id = f.comodo_id
-         WHERE c.obra_id=?""", (obra_id,)).fetchall()
-    for f in fotos:
-        try:
-            os.remove(foto_abs_path(f["arquivo"]))
-        except OSError:
-            pass
-    db.execute("DELETE FROM obras WHERE id=?", (obra_id,))
-    db.commit()
+    obra = obra_do_usuario(obra_id)
+    _remover_arquivos_da_obra(obra)
+    db.session.delete(obra)
+    db.session.commit()
     return redirect(url_for("index"))
 
 
@@ -251,45 +496,42 @@ def excluir_obra(obra_id):
 # API — Cômodos
 # ---------------------------------------------------------------------------
 @app.route("/obra/<int:obra_id>/comodos", methods=["POST"])
+@login_required
 def criar_comodo(obra_id):
-    obra_or_404(obra_id)
+    obra = obra_do_usuario(obra_id)
     nome = (request.form.get("nome") or "").strip()
     if not nome:
         return jsonify({"erro": "Nome do cômodo é obrigatório"}), 400
-    db = get_db()
-    ordem = db.execute(
-        "SELECT COALESCE(MAX(ordem), 0) + 1 AS o FROM comodos WHERE obra_id=?",
-        (obra_id,)).fetchone()["o"]
-    cur = db.execute(
-        "INSERT INTO comodos (obra_id, nome, ordem) VALUES (?,?,?)",
-        (obra_id, nome, ordem))
-    db.commit()
-    return jsonify({"id": cur.lastrowid, "nome": nome})
+    ordem = max((c.ordem for c in obra.comodos), default=0) + 1
+    comodo = Comodo(obra_id=obra.id, nome=nome, ordem=ordem)
+    db.session.add(comodo)
+    db.session.commit()
+    return jsonify({"id": comodo.id, "nome": nome})
 
 
 @app.route("/comodo/<int:comodo_id>/renomear", methods=["POST"])
+@login_required
 def renomear_comodo(comodo_id):
+    comodo = comodo_do_usuario(comodo_id)
     nome = (request.form.get("nome") or "").strip()
     if not nome:
         return jsonify({"erro": "Nome inválido"}), 400
-    db = get_db()
-    db.execute("UPDATE comodos SET nome=? WHERE id=?", (nome, comodo_id))
-    db.commit()
+    comodo.nome = nome
+    db.session.commit()
     return jsonify({"ok": True, "nome": nome})
 
 
 @app.route("/comodo/<int:comodo_id>/excluir", methods=["POST"])
+@login_required
 def excluir_comodo(comodo_id):
-    db = get_db()
-    fotos = db.execute("SELECT arquivo FROM fotos WHERE comodo_id=?",
-                       (comodo_id,)).fetchall()
-    for f in fotos:
+    comodo = comodo_do_usuario(comodo_id)
+    for f in comodo.fotos:
         try:
-            os.remove(foto_abs_path(f["arquivo"]))
+            os.remove(foto_abs_path(f.arquivo))
         except OSError:
             pass
-    db.execute("DELETE FROM comodos WHERE id=?", (comodo_id,))
-    db.commit()
+    db.session.delete(comodo)
+    db.session.commit()
     return jsonify({"ok": True})
 
 
@@ -297,12 +539,9 @@ def excluir_comodo(comodo_id):
 # API — Fotos
 # ---------------------------------------------------------------------------
 @app.route("/comodo/<int:comodo_id>/fotos", methods=["POST"])
+@login_required
 def upload_foto(comodo_id):
-    db = get_db()
-    comodo = db.execute("SELECT * FROM comodos WHERE id=?",
-                        (comodo_id,)).fetchone()
-    if comodo is None:
-        return jsonify({"erro": "Cômodo não encontrado"}), 404
+    comodo = comodo_do_usuario(comodo_id)
 
     file = request.files.get("foto")
     if file is None or file.filename == "":
@@ -311,10 +550,10 @@ def upload_foto(comodo_id):
     descricao = (request.form.get("descricao") or "").strip()
     # Já inicia a legenda com o nome do cômodo, no modelo "Sala - ".
     if not descricao:
-        descricao = f"{comodo['nome']} - "
+        descricao = f"{comodo.nome} - "
     # Caminho relativo guardado SEMPRE com "/" (compatível com URL e Windows).
-    rel_dir = f"{comodo['obra_id']}/{comodo_id}"
-    abs_dir = os.path.join(UPLOAD_DIR, str(comodo["obra_id"]), str(comodo_id))
+    rel_dir = f"{comodo.obra_id}/{comodo_id}"
+    abs_dir = os.path.join(UPLOAD_DIR, str(comodo.obra_id), str(comodo_id))
     os.makedirs(abs_dir, exist_ok=True)
     nome_arquivo = f"{uuid.uuid4().hex}.jpg"
     rel_path = f"{rel_dir}/{nome_arquivo}"
@@ -324,63 +563,68 @@ def upload_foto(comodo_id):
     except Exception as e:  # noqa: BLE001
         return jsonify({"erro": f"Falha ao processar imagem: {e}"}), 400
 
-    ordem = db.execute(
-        "SELECT COALESCE(MAX(ordem),0)+1 AS o FROM fotos WHERE comodo_id=?",
-        (comodo_id,)).fetchone()["o"]
-    cur = db.execute(
-        """INSERT INTO fotos (comodo_id, arquivo, descricao, ordem, criado_em)
-           VALUES (?,?,?,?,?)""",
-        (comodo_id, rel_path, descricao, ordem, datetime.now().isoformat()))
-    db.commit()
+    ordem = max((f.ordem for f in comodo.fotos), default=0) + 1
+    foto = Foto(comodo_id=comodo_id, arquivo=rel_path, descricao=descricao,
+                ordem=ordem, criado_em=datetime.now().isoformat())
+    db.session.add(foto)
+    db.session.commit()
     return jsonify({
-        "id": cur.lastrowid,
+        "id": foto.id,
         "url": url_for("servir_foto", filename=rel_path),
         "descricao": descricao,
     })
 
 
 @app.route("/comodo/<int:comodo_id>/reordenar", methods=["POST"])
+@login_required
 def reordenar_fotos(comodo_id):
     """Recebe os ids das fotos na nova ordem e atualiza o campo 'ordem'.
 
     Essa ordem é a que vale no relatório PowerPoint e no .zip.
     """
+    comodo = comodo_do_usuario(comodo_id)
     ids = request.form.get("ordem", "")
     id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
-    db = get_db()
+    fotos = {f.id: f for f in comodo.fotos}
     for posicao, foto_id in enumerate(id_list):
-        db.execute("UPDATE fotos SET ordem=? WHERE id=? AND comodo_id=?",
-                   (posicao, foto_id, comodo_id))
-    db.commit()
+        if foto_id in fotos:
+            fotos[foto_id].ordem = posicao
+    db.session.commit()
     return jsonify({"ok": True})
 
 
 @app.route("/foto/<int:foto_id>/descricao", methods=["POST"])
+@login_required
 def atualizar_descricao(foto_id):
-    descricao = (request.form.get("descricao") or "").strip()
-    db = get_db()
-    db.execute("UPDATE fotos SET descricao=? WHERE id=?", (descricao, foto_id))
-    db.commit()
+    foto = foto_do_usuario(foto_id)
+    foto.descricao = (request.form.get("descricao") or "").strip()
+    db.session.commit()
     return jsonify({"ok": True})
 
 
 @app.route("/foto/<int:foto_id>/excluir", methods=["POST"])
+@login_required
 def excluir_foto(foto_id):
-    db = get_db()
-    foto = db.execute("SELECT * FROM fotos WHERE id=?", (foto_id,)).fetchone()
-    if foto is None:
-        return jsonify({"erro": "Foto não encontrada"}), 404
+    foto = foto_do_usuario(foto_id)
     try:
-        os.remove(foto_abs_path(foto["arquivo"]))
+        os.remove(foto_abs_path(foto.arquivo))
     except OSError:
         pass
-    db.execute("DELETE FROM fotos WHERE id=?", (foto_id,))
-    db.commit()
+    db.session.delete(foto)
+    db.session.commit()
     return jsonify({"ok": True})
 
 
 @app.route("/uploads/<path:filename>")
+@login_required
 def servir_foto(filename):
+    # Garante que só o dono (ou admin) veja a imagem: o 1º trecho do caminho
+    # é o id da obra (ex.: "12/34/uuid.jpg").
+    try:
+        obra_id = int(filename.split("/")[0])
+    except (ValueError, IndexError):
+        abort(404)
+    obra_do_usuario(obra_id)   # aborta 404 se não for o dono
     return send_from_directory(UPLOAD_DIR, filename)
 
 
@@ -392,25 +636,18 @@ def _preview_rel(arquivo):
     return arquivo + ".preview.jpg"
 
 
-def _foto_or_404(foto_id):
-    foto = get_db().execute("SELECT * FROM fotos WHERE id=?",
-                            (foto_id,)).fetchone()
-    if foto is None:
-        abort(404)
-    return foto
-
-
 @app.route("/foto/<int:foto_id>/editar-ia", methods=["POST"])
+@login_required
 def editar_foto_ia(foto_id):
     if not ia_disponivel():
         return jsonify({"erro": "A edição por IA não está configurada. "
                         "Crie um arquivo .env com OPENAI_API_KEY."}), 400
-    foto = _foto_or_404(foto_id)
+    foto = foto_do_usuario(foto_id)
     prompt = (request.form.get("prompt") or "").strip()
     if not prompt:
         return jsonify({"erro": "Descreva a alteração desejada."}), 400
 
-    origem = foto_abs_path(foto["arquivo"])
+    origem = foto_abs_path(foto.arquivo)
     if not os.path.exists(origem):
         return jsonify({"erro": "Arquivo da foto não encontrado."}), 404
 
@@ -419,34 +656,36 @@ def editar_foto_ia(foto_id):
     except Exception as e:  # noqa: BLE001
         return jsonify({"erro": str(e)}), 502
 
-    preview_rel = _preview_rel(foto["arquivo"])
+    preview_rel = _preview_rel(foto.arquivo)
     with open(foto_abs_path(preview_rel), "wb") as fh:
         fh.write(novos_bytes)
 
     return jsonify({
         "preview_url": url_for("servir_foto", filename=preview_rel),
-        "original_url": url_for("servir_foto", filename=foto["arquivo"]),
+        "original_url": url_for("servir_foto", filename=foto.arquivo),
     })
 
 
 @app.route("/foto/<int:foto_id>/aplicar-edicao", methods=["POST"])
+@login_required
 def aplicar_edicao_ia(foto_id):
-    foto = _foto_or_404(foto_id)
-    preview_abs = foto_abs_path(_preview_rel(foto["arquivo"]))
+    foto = foto_do_usuario(foto_id)
+    preview_abs = foto_abs_path(_preview_rel(foto.arquivo))
     if not os.path.exists(preview_abs):
         return jsonify({"erro": "Nenhuma prévia para aplicar."}), 400
     # Substitui o arquivo original pela versão editada (mantém o mesmo nome).
-    os.replace(preview_abs, foto_abs_path(foto["arquivo"]))
+    os.replace(preview_abs, foto_abs_path(foto.arquivo))
     return jsonify({
         "ok": True,
-        "url": url_for("servir_foto", filename=foto["arquivo"]),
+        "url": url_for("servir_foto", filename=foto.arquivo),
     })
 
 
 @app.route("/foto/<int:foto_id>/descartar-edicao", methods=["POST"])
+@login_required
 def descartar_edicao_ia(foto_id):
-    foto = _foto_or_404(foto_id)
-    preview_abs = foto_abs_path(_preview_rel(foto["arquivo"]))
+    foto = foto_do_usuario(foto_id)
+    preview_abs = foto_abs_path(_preview_rel(foto.arquivo))
     try:
         os.remove(preview_abs)
     except OSError:
@@ -458,28 +697,29 @@ def descartar_edicao_ia(foto_id):
 # Geração de relatório (.pptx) e download das fotos (.zip)
 # ---------------------------------------------------------------------------
 @app.route("/obra/<int:obra_id>/relatorio.pptx")
+@login_required
 def baixar_relatorio(obra_id):
-    obra = obra_or_404(obra_id)
+    obra = obra_do_usuario(obra_id)
     label = periodo_label(request.args.get("mes"), request.args.get("ano"))
 
     comodos = []
-    for grupo in comodos_com_fotos(obra_id):
-        fotos = [{"path": foto_abs_path(f["arquivo"]),
-                  "descricao": f["descricao"]} for f in grupo["fotos"]]
+    for grupo in comodos_com_fotos(obra):
+        fotos = [{"path": foto_abs_path(f.arquivo),
+                  "descricao": f.descricao} for f in grupo["fotos"]]
         if fotos:
-            comodos.append({"nome": grupo["comodo"]["nome"], "fotos": fotos})
+            comodos.append({"nome": grupo["comodo"].nome, "fotos": fotos})
 
     out = io.BytesIO()
     tmp_path = os.path.join(DATA_DIR, f"_relatorio_{uuid.uuid4().hex}.pptx")
     gerar_relatorio(TEMPLATE_PATH, tmp_path,
-                    {"nome": obra["nome"], "endereco": obra["endereco"]},
+                    {"nome": obra.nome, "endereco": obra.endereco},
                     label, comodos)
     with open(tmp_path, "rb") as fh:
         out.write(fh.read())
     os.remove(tmp_path)
     out.seek(0)
 
-    nome_arq = f"Relatorio_{slugify(obra['nome'])}_{slugify(label)}.pptx"
+    nome_arq = f"Relatorio_{slugify(obra.nome)}_{slugify(label)}.pptx"
     return send_file(
         out, as_attachment=True, download_name=nome_arq,
         mimetype=("application/vnd.openxmlformats-officedocument"
@@ -487,18 +727,19 @@ def baixar_relatorio(obra_id):
 
 
 @app.route("/obra/<int:obra_id>/fotos.zip")
+@login_required
 def baixar_fotos_zip(obra_id):
-    obra = obra_or_404(obra_id)
+    obra = obra_do_usuario(obra_id)
     buffer = io.BytesIO()
-    obra_slug = slugify(obra["nome"], "obra")
+    obra_slug = slugify(obra.nome, "obra")
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for grupo in comodos_com_fotos(obra_id):
-            comodo_slug = slugify(grupo["comodo"]["nome"], "comodo")
+        for grupo in comodos_com_fotos(obra):
+            comodo_slug = slugify(grupo["comodo"].nome, "comodo")
             for i, f in enumerate(grupo["fotos"], start=1):
-                src = foto_abs_path(f["arquivo"])
+                src = foto_abs_path(f.arquivo)
                 if not os.path.exists(src):
                     continue
-                desc = slugify(f["descricao"], "")[:40]
+                desc = slugify(f.descricao, "")[:40]
                 base = f"{i:02d}_{desc}" if desc else f"{i:02d}"
                 arcname = f"{obra_slug}/{comodo_slug}/{base}.jpg"
                 zf.write(src, arcname)

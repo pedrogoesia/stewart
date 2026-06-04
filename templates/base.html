@@ -13,6 +13,16 @@
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Stewart" class="brand-logo">
       <span class="brand-text">Relatórios de Obras</span>
     </a>
+    {% if current_user.is_authenticated %}
+    <nav class="user-menu">
+      {% if current_user.is_admin %}
+      <a class="user-link" href="{{ url_for('admin_usuarios') }}">Usuários</a>
+      {% endif %}
+      <a class="user-link" href="{{ url_for('conta') }}">Minha conta</a>
+      <span class="user-email" title="{{ current_user.email }}">{{ current_user.email }}</span>
+      <a class="btn btn-sm btn-ghost" href="{{ url_for('logout') }}">Sair</a>
+    </nav>
+    {% endif %}
     {% block topbar_extra %}{% endblock %}
   </header>
 
