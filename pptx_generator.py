@@ -51,10 +51,12 @@ def _find_layout(prs, name):
     raise RuntimeError(f"Layout '{name}' não encontrado no template.")
 
 
-def _replace_text_keep_format(shape, new_text, font_name=None, size=None):
+def _replace_text_keep_format(shape, new_text, font_name=None, size=None,
+                              bold=None):
     """Substitui o texto de uma forma preservando a formatação do 1º run.
 
-    Opcionalmente aplica fonte (font_name) e tamanho em pontos (size).
+    Opcionalmente aplica fonte (font_name), tamanho em pontos (size) e
+    negrito (bold).
     """
     if not shape.has_text_frame:
         return
@@ -73,6 +75,8 @@ def _replace_text_keep_format(shape, new_text, font_name=None, size=None):
         run.font.name = font_name
     if size is not None:
         run.font.size = Pt(size)
+    if bold is not None:
+        run.font.bold = bold
 
 
 def _set_cover(slide, obra_nome, endereco, periodo_label):
@@ -85,9 +89,13 @@ def _set_cover(slide, obra_nome, endereco, periodo_label):
             _replace_text_keep_format(
                 shape, f"RELATÓRIO FOTOGRÁFICO – {periodo_label}")
         elif txt == "NOME DA OBRA":
-            _replace_text_keep_format(shape, obra_nome, "Helvetica", 19)
+            # Nome da obra: Helvetica 19, negrito, em maiúsculas.
+            _replace_text_keep_format(shape, (obra_nome or "").upper(),
+                                      "Helvetica", 19, bold=True)
         elif txt == "ENDEREÇO DA OBRA":
-            _replace_text_keep_format(shape, endereco or "", "Helvetica", 9)
+            # Endereço (rua): Helvetica 9, normal, em maiúsculas.
+            _replace_text_keep_format(shape, (endereco or "").upper(),
+                                      "Helvetica", 9, bold=False)
 
 
 def _remove_static_month(prs):
