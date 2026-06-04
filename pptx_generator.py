@@ -184,7 +184,7 @@ def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
     # Foto da esquerda (sempre existe)
     f1 = fotos_par[0]
     pic_l = _placeholder(slide, PH_PIC_LEFT)
-    pic_l.insert_picture(f1["path"])
+    foto1 = pic_l.insert_picture(f1["path"])
     _set_caption(slide, PH_CAP_LEFT, f1.get("descricao", ""))
 
     # Foto da direita (opcional)
@@ -194,13 +194,29 @@ def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
         pic_r.insert_picture(f2["path"])
         _set_caption(slide, PH_CAP_RIGHT, f2.get("descricao", ""))
     else:
-        # Remove os espaços reservados não usados para um slide limpo.
+        # Slide com 1 foto só (cômodo com número ímpar de fotos): remove os
+        # espaços da direita e centraliza a foto e a legenda no meio do slide.
         for idx in (PH_PIC_RIGHT, PH_CAP_RIGHT):
             ph = _placeholder(slide, idx)
             if ph is not None:
                 _remove_shape(ph)
+        _centralizar_foto_unica(prs, slide, foto1)
 
     return slide
+
+
+def _centralizar_foto_unica(prs, slide, foto):
+    """Centraliza horizontalmente a foto sozinha (e sua legenda) no slide,
+    mantendo o mesmo tamanho e o alinhamento entre foto e legenda."""
+    # Quanto a foto precisa se deslocar para o centro horizontal do slide.
+    delta = (prs.slide_width - foto.width) // 2 - foto.left
+    foto.left += delta
+
+    cap = _placeholder(slide, PH_CAP_LEFT)
+    if cap is not None:
+        cap.left += delta                 # acompanha a foto
+        for p in cap.text_frame.paragraphs:
+            p.alignment = PP_ALIGN.CENTER  # texto centralizado sob a foto
 
 
 def gerar_relatorio(template_path, output_path, obra, periodo_label, comodos):
