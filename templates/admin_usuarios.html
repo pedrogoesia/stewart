@@ -2,7 +2,7 @@
 {% block title %}Usuários — Stewart{% endblock %}
 
 {% block content %}
-<a class="back-link" href="{{ url_for('index') }}">← Voltar para as obras</a>
+<a class="back-link" href="{{ url_for('main.dashboard') }}">← Voltar ao painel</a>
 
 <div class="page-head">
   <h1>Usuários</h1>
@@ -14,7 +14,7 @@
 <!-- Criar usuário -->
 <section class="panel">
   <h3>Criar novo usuário</h3>
-  <form method="post" action="{{ url_for('admin_criar_usuario') }}" class="field-row">
+  <form method="post" action="{{ url_for('auth.admin_criar_usuario') }}" class="field-row">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Nome
       <input type="text" name="nome" placeholder="Nome da pessoa">
@@ -48,7 +48,7 @@
           <td>{% if u.is_admin %}<span class="badge badge-admin">Admin</span>{% else %}Usuário{% endif %}</td>
           <td>{{ u.obras|length }}</td>
           <td class="acoes-cel">
-            <form method="post" action="{{ url_for('admin_redefinir_senha', user_id=u.id) }}"
+            <form method="post" action="{{ url_for('auth.admin_redefinir_senha', user_id=u.id) }}"
                   class="acao-senha"
                   onsubmit="return confirm('Redefinir a senha de {{ u.email }}?');">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -56,7 +56,7 @@
               <button class="btn btn-sm btn-ghost" type="submit">Redefinir</button>
             </form>
             {% if u.id != current_user.id %}
-            <form method="post" action="{{ url_for('admin_excluir_usuario', user_id=u.id) }}"
+            <form method="post" action="{{ url_for('auth.admin_excluir_usuario', user_id=u.id) }}"
                   onsubmit="return confirm('Excluir {{ u.email }} e TODAS as obras/fotos dele? Esta ação não pode ser desfeita.');">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="btn btn-sm btn-ghost-danger" type="submit">Excluir</button>

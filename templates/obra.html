@@ -2,7 +2,7 @@
 {% block title %}{{ obra.nome }} — Stewart{% endblock %}
 
 {% block content %}
-<a class="back-link" href="{{ url_for('index') }}">← Todas as obras</a>
+<a class="back-link" href="{{ url_for('relatorios.index') }}">← Todas as obras</a>
 
 <div class="page-head">
   <div>
@@ -15,7 +15,7 @@
 <!-- Painel de geração -->
 <section class="panel">
   <h3>Gerar relatório mensal</h3>
-  <form class="report-form" method="get" action="{{ url_for('baixar_relatorio', obra_id=obra.id) }}">
+  <form class="report-form" method="get" action="{{ url_for('relatorios.baixar_relatorio', obra_id=obra.id) }}">
     <div class="field-row">
       <label>Mês
         <select name="mes">
@@ -30,7 +30,7 @@
       <button type="submit" class="btn btn-primary">⬇ Gerar PowerPoint</button>
     </div>
   </form>
-  <a class="btn btn-ghost" href="{{ url_for('baixar_fotos_zip', obra_id=obra.id) }}">
+  <a class="btn btn-ghost" href="{{ url_for('relatorios.baixar_fotos_zip', obra_id=obra.id) }}">
     ⬇ Baixar fotos (.zip por cômodo)
   </a>
 </section>
@@ -70,7 +70,7 @@
     <div class="foto-grid" data-grid="{{ c.id }}">
       {% for f in grupo.fotos %}
       <figure class="foto" data-foto-id="{{ f.id }}">
-        <img src="{{ url_for('servir_foto', filename=f.arquivo) }}" loading="lazy" alt="">
+        <img src="{{ url_for('relatorios.servir_foto', filename=f.arquivo) }}" loading="lazy" alt="">
         <textarea class="foto-desc" placeholder="Descrição da foto…"
                   onchange="salvarDescricao({{ f.id }}, this)">{{ f.descricao }}</textarea>
         <button class="foto-ia" title="Editar com IA" onclick="abrirEditarIA({{ f.id }}, this)">✨</button>
@@ -126,7 +126,7 @@
 </dialog>
 
 <dialog id="editar-obra" class="modal">
-  <form method="post" action="{{ url_for('editar_obra', obra_id=obra.id) }}">
+  <form method="post" action="{{ url_for('relatorios.editar_obra', obra_id=obra.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3>Editar obra</h3>
     <label>Nome da obra

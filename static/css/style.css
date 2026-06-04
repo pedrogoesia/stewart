@@ -315,3 +315,63 @@ body.arrastando { cursor: grabbing; user-select: none; }
   .field-row label, .field-row input, .field-row select, .field-row .btn { width: 100%; }
   .brand-text { font-size: .95rem; }
 }
+
+/* ----------------------------------------------------------- Vitrine de ferramentas */
+.ferramenta-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;
+}
+.ferramenta-card {
+  display: flex; gap: 16px; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 20px; text-decoration: none; color: inherit;
+  transition: transform .08s, box-shadow .15s, border-color .15s;
+}
+.ferramenta-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.1); border-color: #d4d7dd; }
+.ferramenta-inativa { opacity: .72; }
+.ferramenta-inativa:hover { opacity: 1; }
+.ferramenta-icone {
+  flex: 0 0 auto; width: 52px; height: 52px; border-radius: 14px;
+  display: grid; place-items: center; font-size: 1.6rem;
+}
+.ferramenta-icone-grande { width: 80px; height: 80px; font-size: 2.4rem; border-radius: 20px; margin: 0 auto 8px; }
+.ferramenta-corpo h2 { margin: 0 0 6px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ferramenta-corpo p { margin: 0; font-size: .9rem; line-height: 1.4; }
+.badge-breve { background: #fff4e5; color: #b8860b; border-radius: 20px; padding: 2px 10px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.ferramenta-mapa { border-style: dashed; }
+
+/* ----------------------------------------------------------- Mapa de Processos (árvore) */
+.proc-legenda { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; font-size: .82rem; }
+.proc-amostra { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: #fff; border: 1px solid var(--line); vertical-align: middle; }
+.proc-amostra.proc-com-ferramenta { background: #fdf4f4; border-color: var(--red); }
+
+.proc-arvore { overflow-x: auto; padding: 6px 2px; }
+.proc-arvore ul { list-style: none; margin: 0; padding-left: 22px; }
+.proc-arvore .proc-raiz { padding-left: 0; }
+.proc-arvore li { position: relative; padding: 6px 0 6px 18px; }
+/* linhas de conexão da árvore */
+.proc-arvore li::before {
+  content: ""; position: absolute; top: 0; left: 0; bottom: 0;
+  border-left: 2px solid var(--line);
+}
+.proc-arvore li::after {
+  content: ""; position: absolute; top: 22px; left: 0; width: 16px;
+  border-top: 2px solid var(--line);
+}
+.proc-arvore > .proc-raiz > li::before,
+.proc-arvore > .proc-raiz > li::after { display: none; }
+.proc-arvore > .proc-raiz > li { padding-left: 0; }
+.proc-arvore li:last-child::before { bottom: auto; height: 22px; }
+
+.proc-box {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 12px; box-shadow: var(--shadow);
+}
+.proc-com-ferramenta { background: #fdf4f4; border-color: var(--red); }
+.proc-nome { font-size: .9rem; font-weight: 600; }
+.proc-tag {
+  font-size: .72rem; font-weight: 700; border-radius: 20px; padding: 2px 9px;
+  background: #f0f1f3; color: var(--muted); text-decoration: none;
+}
+.proc-tag-ativa { background: var(--red); color: #fff; }
+.proc-tag-ativa:hover { background: var(--red-dark); }

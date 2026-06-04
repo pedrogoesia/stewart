@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Plataforma Stewart{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Olá{% if current_user.nome %}, {{ current_user.nome.split(' ')[0] }}{% endif %}! 👋</h1>
+    <p class="muted">Escolha uma ferramenta para começar.</p>
+  </div>
+</div>
+
+<div class="ferramenta-grid">
+  {% for f in ferramentas %}
+  {% if f.ativo %}
+  <a class="ferramenta-card" href="{{ url_for(f.endpoint) }}">
+  {% else %}
+  <a class="ferramenta-card ferramenta-inativa" href="{{ url_for('main.ferramenta', slug=f.slug) }}">
+  {% endif %}
+    <span class="ferramenta-icone" style="background: {{ f.cor }}1a; color: {{ f.cor }};">{{ f.icone }}</span>
+    <div class="ferramenta-corpo">
+      <h2>
+        {{ f.nome }}
+        {% if not f.ativo %}<span class="badge badge-breve">em breve</span>{% endif %}
+      </h2>
+      <p class="muted">{{ f.descricao }}</p>
+    </div>
+  </a>
+  {% endfor %}
+
+  <a class="ferramenta-card ferramenta-mapa" href="{{ url_for('main.mapa_processos') }}">
+    <span class="ferramenta-icone" style="background:#eef2ff; color:#4456c7;">🗺️</span>
+    <div class="ferramenta-corpo">
+      <h2>Mapa de Processos</h2>
+      <p class="muted">A árvore de processos da construtora e onde cada
+        ferramenta se encaixa.</p>
+    </div>
+  </a>
+</div>
+{% endblock %}

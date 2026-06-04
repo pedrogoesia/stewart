@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Mapa de Processos — Stewart{% endblock %}
+
+{% macro no_processo(no, ferramentas) %}
+<li>
+  {% set ferr = None %}
+  {% if no.ferramenta %}
+    {% for f in ferramentas %}{% if f.slug == no.ferramenta %}{% set ferr = f %}{% endif %}{% endfor %}
+  {% endif %}
+  <div class="proc-box {% if ferr %}proc-com-ferramenta{% endif %}">
+    <span class="proc-nome">{{ no.nome }}</span>
+    {% if ferr %}
+      {% if ferr.ativo %}
+      <a class="proc-tag proc-tag-ativa" href="{{ url_for(ferr.endpoint) }}">{{ ferr.icone }} abrir</a>
+      {% else %}
+      <span class="proc-tag">{{ ferr.icone }} em breve</span>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if no.filhos %}
+  <ul>
+    {% for filho in no.filhos %}{{ no_processo(filho, ferramentas) }}{% endfor %}
+  </ul>
+  {% endif %}
+</li>
+{% endmacro %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('main.dashboard') }}">← Ferramentas</a>
+<div class="page-head">
+  <div>
+    <h1>🗺️ Mapa de Processos</h1>
+    <p class="muted">A árvore dos processos da construtora. As caixas
+      destacadas já têm uma ferramenta na plataforma — o mapa cresce conforme
+      vamos mapeando o negócio.</p>
+  </div>
+</div>
+
+<div class="panel">
+  <p class="muted proc-legenda">
+    <span class="proc-amostra proc-com-ferramenta"></span> processo com ferramenta &nbsp;·&nbsp;
+    <span class="proc-amostra"></span> processo a mapear/automatizar
+  </p>
+  <div class="proc-arvore">
+    <ul class="proc-raiz">
+      {{ no_processo(processos, ferramentas) }}
+    </ul>
+  </div>
+</div>
+{% endblock %}
