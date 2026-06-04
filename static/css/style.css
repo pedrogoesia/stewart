@@ -159,11 +159,13 @@ body.arrastando { cursor: grabbing; user-select: none; }
   width: min(760px, 94vw);
   padding: 0;
   max-height: 90vh;
-  display: flex;
   flex-direction: column;
   overflow: hidden;
   border-radius: 18px;
 }
+/* O layout em coluna só vale quando o modal está aberto.
+   Fechado, o <dialog> precisa manter o display:none padrão do navegador. */
+.modal-ia[open] { display: flex; }
 
 /* Cabeçalho */
 .ia-header {
