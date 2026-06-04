@@ -518,8 +518,8 @@ body.has-sidebar .conteudo { margin-left: 260px; }
   display: flex; flex-direction: column; padding: 14px 12px;
 }
 .sb-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; padding: 4px 8px 12px; }
-.sb-logo { height: 24px; background: #fff; padding: 4px 7px; border-radius: 6px; }
-.sb-brand-txt { font-weight: 700; letter-spacing: .2px; color: #fff; }
+.sb-logo { width: 32px; height: 32px; background: #fff; padding: 3px; border-radius: 9px; }
+.sb-brand-txt { font-weight: 700; letter-spacing: .3px; color: #fff; font-size: 1.05rem; }
 
 .sb-novo {
   display: flex; align-items: center; gap: 9px; margin: 0 2px 8px;
@@ -530,20 +530,20 @@ body.has-sidebar .conteudo { margin-left: 260px; }
 .sb-novo svg { width: 18px; height: 18px; color: #fff; }
 
 .sb-nav { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-.sb-sec { font-size: .68rem; text-transform: uppercase; letter-spacing: .09em; color: rgba(255, 255, 255, .6); padding: 14px 12px 6px; font-weight: 700; }
+.sb-sec { font-size: .7rem; text-transform: uppercase; letter-spacing: .09em; color: rgba(255, 255, 255, .85); padding: 14px 12px 6px; font-weight: 700; }
 .sb-item {
   display: flex; align-items: center; gap: 10px; padding: 9px 12px;
-  border-radius: 9px; text-decoration: none; color: rgba(255, 255, 255, .92); font-size: .9rem;
+  border-radius: 9px; text-decoration: none; color: #fff; font-size: .9rem; font-weight: 500;
 }
-.sb-item svg { width: 18px; height: 18px; color: rgba(255, 255, 255, .75); flex: 0 0 auto; }
-.sb-item:hover { background: rgba(255, 255, 255, .13); color: #fff; }
-.sb-item:hover svg { color: #fff; }
-.sb-item.ativo { background: rgba(255, 255, 255, .18); color: #fff; font-weight: 600; }
+.sb-item svg { width: 18px; height: 18px; color: #fff; flex: 0 0 auto; }
+.sb-item:hover { background: rgba(255, 255, 255, .16); }
+.sb-item.ativo { background: rgba(255, 255, 255, .22); color: #fff; font-weight: 600; }
 .sb-item.ativo svg { color: #fff; }
-.sb-item-inativo { color: rgba(255, 255, 255, .65); }
+.sb-item-inativo { color: rgba(255, 255, 255, .85); }
+.sb-item-inativo svg { color: rgba(255, 255, 255, .85); }
 .sb-breve {
   margin-left: auto; font-size: .6rem; text-transform: uppercase; letter-spacing: .05em;
-  background: rgba(255, 255, 255, .2); color: #fff; padding: 2px 7px; border-radius: 20px; font-weight: 700;
+  background: rgba(255, 255, 255, .25); color: #fff; padding: 2px 7px; border-radius: 20px; font-weight: 700;
 }
 
 .sb-rodape { border-top: 1px solid rgba(255, 255, 255, .2); padding-top: 8px; margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
@@ -552,7 +552,7 @@ body.has-sidebar .conteudo { margin-left: 260px; }
   width: 30px; height: 30px; border-radius: 50%; background: #fff; color: var(--red);
   display: grid; place-items: center; font-size: .8rem; font-weight: 700; flex: 0 0 auto; text-transform: uppercase;
 }
-.sb-email { font-size: .76rem; color: rgba(255, 255, 255, .8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.sb-email { font-size: .78rem; color: rgba(255, 255, 255, .92); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .sb-sair { color: rgba(255, 255, 255, .8); display: grid; place-items: center; text-decoration: none; }
 .sb-sair:hover { color: #fff; }
 .sb-sair svg { width: 18px; height: 18px; }
