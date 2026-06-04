@@ -1,43 +1,34 @@
 {% extends "base.html" %}
 {% from "_icones.html" import icone %}
-{% block title %}Plataforma Stewart{% endblock %}
+{% block title %}Assistente — Stewart{% endblock %}
 
 {% block content %}
-<div class="dash-head">
-  <span class="dash-eyebrow">Plataforma</span>
-  <h1>Olá{% if current_user.nome %}, {{ current_user.nome.split(' ')[0] }}{% endif %}</h1>
-  <p class="muted">Selecione uma ferramenta para começar.</p>
+<div class="harness">
+  <div class="harness-conversa" id="conversa"></div>
+
+  <div class="harness-centro" id="harnessIntro">
+    <span class="harness-marca">{{ icone('spark') }}</span>
+    <h1 class="harness-titulo">Olá{% if current_user.nome %}, {{ current_user.nome.split(' ')[0] }}{% endif %}. No que vamos trabalhar hoje?</h1>
+  </div>
+
+  <form class="harness-form" id="harnessForm" autocomplete="off">
+    <button type="button" class="harness-add" title="Anexar (em breve)">{{ icone('plus') }}</button>
+    <textarea id="harnessInput" class="harness-input" rows="1"
+              placeholder="Pergunte ou descreva o que você precisa…"></textarea>
+    <button type="submit" class="harness-send" title="Enviar">{{ icone('send') }}</button>
+  </form>
+
+  <div class="harness-chips" id="harnessChips">
+    <a class="harness-chip" href="{{ url_for('relatorios.index') }}">{{ icone('camera') }} Relatório de obra</a>
+    <a class="harness-chip" href="{{ url_for('main.workflows') }}">{{ icone('flow') }} Workflows</a>
+    <a class="harness-chip" href="{{ url_for('main.empresa') }}">{{ icone('building') }} Empresa</a>
+  </div>
+
+  <p class="harness-aviso muted" id="harnessAviso">O assistente está em construção.
+    As ações rápidas acima já levam às ferramentas.</p>
 </div>
+{% endblock %}
 
-<div class="ferramenta-grid">
-  {% for f in ferramentas %}
-  <a class="ferramenta-card {% if not f.ativo %}is-inativa{% endif %}"
-     href="{% if f.ativo %}{{ url_for(f.endpoint) }}{% else %}{{ url_for('main.ferramenta', slug=f.slug) }}{% endif %}">
-    <span class="ferramenta-icone">{{ icone(f.icone) }}</span>
-    <div class="ferramenta-corpo">
-      <h2>{{ f.nome }}{% if not f.ativo %}<span class="badge-breve">em breve</span>{% endif %}</h2>
-      <p>{{ f.descricao }}</p>
-    </div>
-    <span class="ferramenta-seta">{{ icone('arrow') }}</span>
-  </a>
-  {% endfor %}
-
-  <a class="ferramenta-card is-mapa" href="{{ url_for('main.workflows') }}">
-    <span class="ferramenta-icone">{{ icone('flow') }}</span>
-    <div class="ferramenta-corpo">
-      <h2>Workflows</h2>
-      <p>O quadro de fluxos e processos da construtora e onde cada ferramenta se encaixa.</p>
-    </div>
-    <span class="ferramenta-seta">{{ icone('arrow') }}</span>
-  </a>
-
-  <a class="ferramenta-card is-empresa" href="{{ url_for('main.empresa') }}">
-    <span class="ferramenta-icone">{{ icone('building') }}</span>
-    <div class="ferramenta-corpo">
-      <h2>Empresa</h2>
-      <p>Painel institucional da Stewart Engenharia: dados, contato e informações.</p>
-    </div>
-    <span class="ferramenta-seta">{{ icone('arrow') }}</span>
-  </a>
-</div>
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/harness.js') }}"></script>
 {% endblock %}

@@ -80,6 +80,13 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(relatorios_bp)
 
+    # Disponibiliza a lista de ferramentas para a barra lateral (todos templates).
+    from plataforma import FERRAMENTAS
+
+    @app.context_processor
+    def injetar_navegacao():
+        return {"NAV_FERRAMENTAS": FERRAMENTAS}
+
     _registrar_seguranca(app)
     return app
 
