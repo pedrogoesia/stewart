@@ -22,11 +22,13 @@
 
 <!-- Barra lateral -->
 <aside class="sidebar">
-  <a class="sb-brand" href="{{ url_for('main.dashboard') }}">
-    <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Stewart" class="sb-logo">
-    <span class="sb-brand-txt">Stewart</span>
-  </a>
+  <div class="sb-top">
+    <a class="sb-brand" href="{{ url_for('main.dashboard') }}">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Stewart Engenharia" class="sb-logo-full">
+    </a>
+  </div>
 
+  <div class="sb-body">
   <a class="sb-novo" href="{{ url_for('main.dashboard') }}">{{ icone('spark') }} Assistente</a>
 
   <nav class="sb-nav">
@@ -60,6 +62,7 @@
       <span class="sb-email" title="{{ current_user.email }}">{{ current_user.email }}</span>
       <a class="sb-sair" href="{{ url_for('auth.logout') }}" title="Sair">{{ icone('logout') }}</a>
     </div>
+  </div>
   </div>
 </aside>
 {% endif %}
