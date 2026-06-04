@@ -1,13 +1,17 @@
-// Harness (assistente) — comportamento de chat. Por enquanto é só front:
-// ainda não há back-end de IA, então o assistente responde com um aviso.
+// Harness (assistente) — saudação por horário + chat (por enquanto só front).
 (function () {
+  // Saudação conforme a hora local do usuário.
+  const saud = document.getElementById("saud");
+  if (saud) {
+    const h = new Date().getHours();
+    saud.textContent = h < 12 ? "Bom dia" : (h < 18 ? "Boa tarde" : "Boa noite");
+  }
+
   const form = document.getElementById("harnessForm");
   if (!form) return;
   const input = document.getElementById("harnessInput");
   const conversa = document.getElementById("conversa");
-  const intro = document.getElementById("harnessIntro");
 
-  // textarea cresce conforme o texto
   function ajustarAltura() {
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 200) + "px";
@@ -27,7 +31,6 @@
     const texto = input.value.trim();
     if (!texto) return;
     document.body.classList.add("harness-ativa");
-    if (intro) intro.style.display = "none";
     bolha(texto, "user");
     input.value = "";
     ajustarAltura();
@@ -39,7 +42,6 @@
     }, 300);
   });
 
-  // Enter envia; Shift+Enter quebra linha
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();

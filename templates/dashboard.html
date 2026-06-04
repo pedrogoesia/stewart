@@ -4,28 +4,31 @@
 
 {% block content %}
 <div class="harness">
+  <div class="harness-glow"></div>
+
+  <div class="harness-hero">
+    <h1 class="harness-titulo"><span id="saud">Olá</span>{% if current_user.nome %}, {{ current_user.nome.split(' ')[0] }}{% endif %}.
+      <span class="harness-grad">No que você quer trabalhar hoje?</span></h1>
+
+    <form class="harness-form" id="harnessForm" autocomplete="off">
+      <textarea id="harnessInput" class="harness-input" rows="1"
+                placeholder="Pergunte, peça um relatório, dispare um agente…"></textarea>
+      <button type="submit" class="harness-send" title="Enviar">{{ icone('send') }}</button>
+    </form>
+
+    <div class="harness-chips">
+      <a class="harness-chip" href="{{ url_for('relatorios.index') }}">{{ icone('camera') }} Relatório de obra</a>
+      <a class="harness-chip" href="{{ url_for('main.workflows') }}">{{ icone('flow') }} Workflows</a>
+      {% if current_user.is_admin %}
+      <a class="harness-chip" href="{{ url_for('main.empresa') }}">{{ icone('building') }} Empresa</a>
+      {% endif %}
+    </div>
+
+    <p class="harness-aviso muted">O assistente está em construção. Os atalhos
+      acima já levam às ferramentas.</p>
+  </div>
+
   <div class="harness-conversa" id="conversa"></div>
-
-  <div class="harness-centro" id="harnessIntro">
-    <span class="harness-marca">{{ icone('spark') }}</span>
-    <h1 class="harness-titulo">Olá{% if current_user.nome %}, {{ current_user.nome.split(' ')[0] }}{% endif %}. No que vamos trabalhar hoje?</h1>
-  </div>
-
-  <form class="harness-form" id="harnessForm" autocomplete="off">
-    <button type="button" class="harness-add" title="Anexar (em breve)">{{ icone('plus') }}</button>
-    <textarea id="harnessInput" class="harness-input" rows="1"
-              placeholder="Pergunte ou descreva o que você precisa…"></textarea>
-    <button type="submit" class="harness-send" title="Enviar">{{ icone('send') }}</button>
-  </form>
-
-  <div class="harness-chips" id="harnessChips">
-    <a class="harness-chip" href="{{ url_for('relatorios.index') }}">{{ icone('camera') }} Relatório de obra</a>
-    <a class="harness-chip" href="{{ url_for('main.workflows') }}">{{ icone('flow') }} Workflows</a>
-    <a class="harness-chip" href="{{ url_for('main.empresa') }}">{{ icone('building') }} Empresa</a>
-  </div>
-
-  <p class="harness-aviso muted" id="harnessAviso">O assistente está em construção.
-    As ações rápidas acima já levam às ferramentas.</p>
 </div>
 {% endblock %}
 

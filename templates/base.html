@@ -22,16 +22,17 @@
 
 <!-- Barra lateral -->
 <aside class="sidebar">
-  <div class="sb-top">
-    <a class="sb-brand" href="{{ url_for('main.dashboard') }}">
-      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Stewart Engenharia" class="sb-logo-full">
-    </a>
-  </div>
-
-  <div class="sb-body">
-  <a class="sb-novo" href="{{ url_for('main.dashboard') }}">{{ icone('spark') }} Assistente</a>
+  <a class="sb-brand" href="{{ url_for('main.dashboard') }}">
+    <img src="{{ url_for('static', filename='img/logo-light.svg') }}" alt="Stewart Engenharia" class="sb-logo-full">
+  </a>
 
   <nav class="sb-nav">
+    <div class="sb-sec">Plataforma</div>
+    <a class="sb-item {% if request.path == url_for('main.dashboard') %}ativo{% endif %}"
+       href="{{ url_for('main.dashboard') }}">{{ icone('spark') }} Assistente</a>
+    <a class="sb-item {% if request.path == url_for('main.workflows') %}ativo{% endif %}"
+       href="{{ url_for('main.workflows') }}">{{ icone('flow') }} Workflows</a>
+
     <div class="sb-sec">Ferramentas</div>
     {% for f in NAV_FERRAMENTAS %}
       {% if f.ativo %}
@@ -43,23 +44,24 @@
       {% endif %}
     {% endfor %}
 
-    <a class="sb-item {% if request.path == url_for('main.workflows') %}ativo{% endif %}"
-       href="{{ url_for('main.workflows') }}">{{ icone('flow') }} Workflows</a>
     {% if current_user.is_admin %}
+    <div class="sb-sec">Administração</div>
     <a class="sb-item {% if request.path == url_for('auth.admin_usuarios') %}ativo{% endif %}"
        href="{{ url_for('auth.admin_usuarios') }}">{{ icone('id') }} Usuários</a>
+    <a class="sb-item {% if request.path == url_for('main.empresa') %}ativo{% endif %}"
+       href="{{ url_for('main.empresa') }}">{{ icone('building') }} Empresa</a>
     {% endif %}
   </nav>
 
   <div class="sb-rodape">
-    <a class="sb-item {% if request.path == url_for('auth.conta') %}ativo{% endif %}"
-       href="{{ url_for('auth.conta') }}">{{ icone('badge') }} Minha conta</a>
-    <div class="sb-user">
+    <a class="sb-user" href="{{ url_for('auth.conta') }}">
       <span class="sb-avatar">{{ (current_user.nome or current_user.email)[0] }}</span>
-      <span class="sb-email" title="{{ current_user.email }}">{{ current_user.email }}</span>
-      <a class="sb-sair" href="{{ url_for('auth.logout') }}" title="Sair">{{ icone('logout') }}</a>
-    </div>
-  </div>
+      <span class="sb-user-info">
+        <span class="sb-user-nome">{{ current_user.nome or 'Minha conta' }}</span>
+        <span class="sb-email" title="{{ current_user.email }}">{{ current_user.email }}</span>
+      </span>
+    </a>
+    <a class="sb-sair" href="{{ url_for('auth.logout') }}" title="Sair">{{ icone('logout') }}</a>
   </div>
 </aside>
 {% endif %}
