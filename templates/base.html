@@ -22,9 +22,11 @@
 
 <!-- Barra lateral -->
 <aside class="sidebar">
-  <a class="sb-brand" href="{{ url_for('main.dashboard') }}">
-    <img src="{{ url_for('static', filename='img/logo-light.svg') }}" alt="Stewart Engenharia" class="sb-logo-full">
-  </a>
+  <div class="sb-top">
+    <a class="sb-brand" href="{{ url_for('main.dashboard') }}">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Stewart Engenharia" class="sb-logo-full">
+    </a>
+  </div>
 
   <nav class="sb-nav">
     <div class="sb-sec">Plataforma</div>

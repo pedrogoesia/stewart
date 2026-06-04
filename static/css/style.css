@@ -521,8 +521,9 @@ body.has-sidebar .conteudo { margin-left: 260px; }
   position: fixed; top: 0; left: 0; bottom: 0; width: 260px; z-index: 60;
   background: var(--sidebar); display: flex; flex-direction: column; padding: 18px 14px 14px;
 }
-.sb-brand { display: block; text-decoration: none; padding: 4px 8px 4px; }
-.sb-logo-full { display: block; width: 100%; max-width: 170px; height: auto; }
+.sb-top { background: #fff; border-radius: 10px; padding: 13px 14px; }
+.sb-brand { display: block; text-decoration: none; }
+.sb-logo-full { display: block; width: 100%; max-width: 100%; height: auto; }
 
 .sb-nav { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin-top: 12px; }
 .sb-sec { font-size: .66rem; text-transform: uppercase; letter-spacing: .14em; color: rgba(255, 255, 255, .38); padding: 18px 10px 8px; font-weight: 600; }
