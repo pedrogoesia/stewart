@@ -11,6 +11,7 @@
 
     <form method="post"
           action="{{ url_for('login') }}{% if request.args.get('next') %}?next={{ request.args.get('next') }}{% endif %}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label>Email
         <input type="email" name="email" required autofocus autocomplete="username">
       </label>

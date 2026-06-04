@@ -127,6 +127,7 @@
 
 <dialog id="editar-obra" class="modal">
   <form method="post" action="{{ url_for('editar_obra', obra_id=obra.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3>Editar obra</h3>
     <label>Nome da obra
       <input type="text" name="nome" value="{{ obra.nome }}" required>

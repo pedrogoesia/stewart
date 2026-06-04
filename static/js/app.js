@@ -1,9 +1,20 @@
 // Stewart — interações da página da obra (upload, descrições, cômodos).
 
+// Token CSRF: enviado em todo POST para o servidor confirmar que a requisição
+// partiu da nossa própria página (e não de um site malicioso).
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+
 function postForm(url, data) {
   const fd = new FormData();
   for (const k in data) fd.append(k, data[k]);
-  return fetch(url, { method: "POST", body: fd });
+  return fetch(url, {
+    method: "POST",
+    body: fd,
+    headers: { "X-CSRFToken": csrfToken() },
+  });
 }
 
 // ---------------------------------------------------------------- Cômodos
@@ -82,6 +93,7 @@ async function enviarFotos(input, comodoId) {
       fd.append("descricao", "");
       const resp = await fetch(`/comodo/${comodoId}/fotos`, {
         method: "POST", body: fd,
+        headers: { "X-CSRFToken": csrfToken() },
       });
       if (!resp.ok) throw new Error((await resp.json()).erro || "falha");
       const f = await resp.json();

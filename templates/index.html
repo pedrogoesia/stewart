@@ -25,6 +25,7 @@
       <a class="btn btn-sm" href="{{ url_for('obra_detail', obra_id=o.id) }}">Abrir</a>
       <form method="post" action="{{ url_for('excluir_obra', obra_id=o.id) }}"
             onsubmit="return confirm('Excluir a obra {{ o.nome }} e todas as fotos?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="btn btn-sm btn-ghost-danger" type="submit">Excluir</button>
       </form>
     </div>
@@ -42,6 +43,7 @@
 
 <dialog id="nova-obra" class="modal">
   <form method="post" action="{{ url_for('criar_obra') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3>Nova obra</h3>
     <label>Nome da obra
       <input type="text" name="nome" required placeholder="Ex.: Residencial Jardins" autofocus>

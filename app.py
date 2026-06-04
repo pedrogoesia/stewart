@@ -20,16 +20,21 @@ import re
 import unicodedata
 import uuid
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from flask import (Flask, abort, jsonify, redirect, render_template, request,
-                   send_file, send_from_directory, url_for)
+                   send_file, send_from_directory, session, url_for)
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_login import (LoginManager, UserMixin, current_user, login_required,
                          login_user, logout_user)
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import CSRFProtect
+from flask_wtf.csrf import CSRFError
 from PIL import Image, ImageOps
 from sqlalchemy import inspect, text
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # Carrega variáveis do arquivo .env (ex.: OPENAI_API_KEY, SECRET_KEY,
@@ -82,15 +87,39 @@ def _database_url():
     return "sqlite:///" + Path(DB_PATH).as_posix()
 
 
+# Estamos em produção? (quando há um banco externo configurado ou FLASK_ENV).
+# Em produção, ativamos cookies "Secure" (só HTTPS), HSTS e exigimos SECRET_KEY.
+IS_PRODUCTION = (bool(os.environ.get("DATABASE_URL", "").strip())
+                 or os.environ.get("FLASK_ENV") == "production")
+
+SENHA_MIN = 8  # tamanho mínimo de senha
+
 app = Flask(__name__)
+
+# Confia nos cabeçalhos do proxy reverso (Render/Railway/Nginx) para detectar
+# HTTPS corretamente — necessário para os cookies "Secure" funcionarem.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB por upload
 app.config["SQLALCHEMY_DATABASE_URI"] = _database_url()
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
 
-# Chave usada para assinar o cookie de sessão (login). EM PRODUÇÃO defina
-# SECRET_KEY no .env com um valor longo e aleatório.
+# --- Cookie de sessão endurecido ---
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,        # JavaScript não lê o cookie (anti-XSS)
+    SESSION_COOKIE_SAMESITE="Lax",       # não vai em requisições de outros sites
+    SESSION_COOKIE_SECURE=IS_PRODUCTION,  # só trafega em HTTPS (em produção)
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+    WTF_CSRF_TIME_LIMIT=None,            # token de CSRF vale enquanto durar a sessão
+)
+
+# Chave que assina o cookie de sessão. EM PRODUÇÃO é obrigatória.
 _secret = os.environ.get("SECRET_KEY", "").strip()
 if not _secret:
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "SECRET_KEY não definida. Em produção, defina a variável de "
+            "ambiente SECRET_KEY com um valor longo e aleatório.")
     _secret = "dev-inseguro-troque-em-producao"
     print("[AVISO] SECRET_KEY não definida — usando chave de desenvolvimento. "
           "Defina SECRET_KEY no .env antes de publicar.")
@@ -98,9 +127,51 @@ app.config["SECRET_KEY"] = _secret
 
 db = SQLAlchemy(app)
 
+# Proteção contra CSRF (Cross-Site Request Forgery) em todos os POST/PUT/DELETE.
+csrf = CSRFProtect(app)
+
+# Limite de requisições (anti força-bruta / abuso). Em produção com vários
+# servidores, aponte RATELIMIT_STORAGE_URI para um Redis.
+limiter = Limiter(
+    get_remote_address, app=app,
+    storage_uri=os.environ.get("RATELIMIT_STORAGE_URI", "memory://"),
+)
+
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Faça login para acessar esta página."
+
+
+@app.after_request
+def aplicar_cabecalhos_seguranca(resp):
+    """Cabeçalhos HTTP que reduzem a superfície de ataque do navegador."""
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"            # impede clickjacking
+    resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    resp.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(self)"
+    # Política de conteúdo: só carrega recursos do próprio site. 'unsafe-inline'
+    # é necessário porque a interface usa scripts/estilos embutidos (onclick etc.).
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; "
+        "form-action 'self'")
+    if IS_PRODUCTION:
+        resp.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains")
+    return resp
+
+
+@app.errorhandler(CSRFError)
+def tratar_csrf(e):
+    return jsonify({"erro": "Sessão expirada ou inválida. Recarregue a página "
+                    "e tente novamente."}), 400
+
+
+def _senha_fraca(senha):
+    return len(senha or "") < SENHA_MIN
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +380,7 @@ def _destino_seguro(target):
 # Autenticação
 # ---------------------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute", methods=["POST"])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("index"))
@@ -317,9 +389,11 @@ def login():
         senha = request.form.get("senha") or ""
         usuario = Usuario.query.filter_by(email=email).first()
         if usuario and usuario.conferir_senha(senha):
+            session.permanent = True
             login_user(usuario)
             destino = _destino_seguro(request.args.get("next"))
             return redirect(destino or url_for("index"))
+        # Mensagem genérica: não revela se o email existe (evita enumeração).
         return render_template("login.html", erro="Email ou senha inválidos.")
     return render_template("login.html")
 
@@ -351,6 +425,9 @@ def conta():
             current_user.email = email
         current_user.nome = nome
         if nova_senha:
+            if _senha_fraca(nova_senha):
+                return render_template("conta.html",
+                                       erro=f"A nova senha deve ter pelo menos {SENHA_MIN} caracteres.")
             current_user.definir_senha(nova_senha)
         db.session.commit()
         return render_template("conta.html", ok=True)
@@ -383,6 +460,8 @@ def admin_criar_usuario():
     is_admin = request.form.get("is_admin") == "on"
     if not email or not senha:
         return _admin_msg("Informe email e senha.", erro=True)
+    if _senha_fraca(senha):
+        return _admin_msg(f"A senha deve ter pelo menos {SENHA_MIN} caracteres.", erro=True)
     if Usuario.query.filter_by(email=email).first():
         return _admin_msg("Já existe um usuário com esse email.", erro=True)
     usuario = Usuario(email=email, nome=nome, is_admin=is_admin,
@@ -399,8 +478,8 @@ def admin_redefinir_senha(user_id):
     _exige_admin()
     usuario = db.session.get(Usuario, user_id) or abort(404)
     nova = request.form.get("senha") or ""
-    if not nova:
-        return _admin_msg("Informe a nova senha.", erro=True)
+    if _senha_fraca(nova):
+        return _admin_msg(f"A nova senha deve ter pelo menos {SENHA_MIN} caracteres.", erro=True)
     usuario.definir_senha(nova)
     db.session.commit()
     return _admin_msg(f"Senha de {usuario.email} redefinida.")
@@ -638,6 +717,7 @@ def _preview_rel(arquivo):
 
 @app.route("/foto/<int:foto_id>/editar-ia", methods=["POST"])
 @login_required
+@limiter.limit("20 per hour")
 def editar_foto_ia(foto_id):
     if not ia_disponivel():
         return jsonify({"erro": "A edição por IA não está configurada. "
