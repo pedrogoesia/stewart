@@ -161,13 +161,25 @@ def aplicar_cabecalhos_seguranca(resp):
     if IS_PRODUCTION:
         resp.headers["Strict-Transport-Security"] = (
             "max-age=31536000; includeSubDomains")
+    # Não deixa o navegador guardar as PÁGINAS em cache (o CSS/JS continuam
+    # cacheáveis). Evita reusar uma página antiga com token CSRF vencido.
+    if resp.mimetype == "text/html":
+        resp.headers["Cache-Control"] = "no-store"
     return resp
 
 
 @app.errorhandler(CSRFError)
 def tratar_csrf(e):
-    return jsonify({"erro": "Sessão expirada ou inválida. Recarregue a página "
-                    "e tente novamente."}), 400
+    # Requisições via fetch (JS) mandam o header X-CSRFToken — devolvemos JSON.
+    if request.headers.get("X-CSRFToken") or request.is_json:
+        return jsonify({"erro": "Sessão expirada. Recarregue a página e "
+                        "tente novamente."}), 400
+    # Envio normal de formulário: volta para a página de login com um aviso,
+    # em vez de mostrar um JSON cru.
+    if not current_user.is_authenticated:
+        return render_template("login.html",
+                               erro="Sua sessão expirou. Tente entrar de novo."), 400
+    return redirect(request.referrer or url_for("index"))
 
 
 def _senha_fraca(senha):
