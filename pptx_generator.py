@@ -206,15 +206,27 @@ def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
 
 
 def _centralizar_foto_unica(prs, slide, foto):
-    """Centraliza horizontalmente a foto sozinha (e sua legenda) no slide,
-    mantendo o mesmo tamanho e o alinhamento entre foto e legenda."""
-    # Quanto a foto precisa se deslocar para o centro horizontal do slide.
-    delta = (prs.slide_width - foto.width) // 2 - foto.left
-    foto.left += delta
+    """Centraliza horizontalmente a foto sozinha (e sua legenda) no slide.
+
+    Atenção: a foto e a legenda HERDAM a posição/tamanho do layout (não têm
+    geometria própria). Se definirmos só a coordenada X, o python-pptx cria uma
+    posição incompleta (sem largura/altura e com topo 0), o que joga a foto
+    sobre o cabeçalho e faz o PowerPoint não exibi-la. Por isso fixamos a
+    geometria COMPLETA (esquerda, topo, largura e altura).
+    """
+    def _centralizar(shape):
+        # Lê a geometria herdada ANTES de qualquer alteração.
+        top, w, h = shape.top, shape.width, shape.height
+        shape.left = (prs.slide_width - w) // 2
+        shape.top = top
+        shape.width = w
+        shape.height = h
+
+    _centralizar(foto)
 
     cap = _placeholder(slide, PH_CAP_LEFT)
     if cap is not None:
-        cap.left += delta                 # acompanha a foto
+        _centralizar(cap)
         for p in cap.text_frame.paragraphs:
             p.alignment = PP_ALIGN.CENTER  # texto centralizado sob a foto
 
