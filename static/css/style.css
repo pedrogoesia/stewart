@@ -317,27 +317,79 @@ body.arrastando { cursor: grabbing; user-select: none; }
 }
 
 /* ----------------------------------------------------------- Vitrine de ferramentas */
+.dash-head { margin-bottom: 22px; }
+.dash-eyebrow {
+  display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--red); margin-bottom: 6px;
+}
+.dash-head h1 { margin: 0 0 4px; font-size: 1.7rem; letter-spacing: -.015em; }
+
 .ferramenta-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;
 }
 .ferramenta-card {
-  display: flex; gap: 16px; align-items: flex-start;
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  position: relative; display: flex; gap: 16px; align-items: center;
+  background: var(--card); border: 1px solid var(--line); border-radius: 14px;
   box-shadow: var(--shadow); padding: 20px; text-decoration: none; color: inherit;
-  transition: transform .08s, box-shadow .15s, border-color .15s;
+  overflow: hidden;
+  transition: transform .12s ease, box-shadow .18s ease, border-color .18s ease;
 }
-.ferramenta-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.1); border-color: #d4d7dd; }
-.ferramenta-inativa { opacity: .72; }
-.ferramenta-inativa:hover { opacity: 1; }
+/* fina barra de acento na borda esquerda, na cor da marca */
+.ferramenta-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--red); transform: scaleY(0); transform-origin: top;
+  transition: transform .18s ease;
+}
+.ferramenta-card:hover {
+  transform: translateY(-3px); box-shadow: 0 14px 30px rgba(29, 29, 31, .12);
+  border-color: #d4d7dd;
+}
+.ferramenta-card:hover::before { transform: scaleY(1); }
+
 .ferramenta-icone {
-  flex: 0 0 auto; width: 52px; height: 52px; border-radius: 14px;
-  display: grid; place-items: center; font-size: 1.6rem;
+  flex: 0 0 auto; width: 50px; height: 50px; border-radius: 13px;
+  display: grid; place-items: center;
+  background: linear-gradient(140deg, var(--red), var(--red-dark));
+  color: #fff; box-shadow: 0 6px 14px rgba(163, 33, 43, .28);
 }
-.ferramenta-icone-grande { width: 80px; height: 80px; font-size: 2.4rem; border-radius: 20px; margin: 0 auto 8px; }
-.ferramenta-corpo h2 { margin: 0 0 6px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ferramenta-corpo p { margin: 0; font-size: .9rem; line-height: 1.4; }
-.badge-breve { background: #fff4e5; color: #b8860b; border-radius: 20px; padding: 2px 10px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
-.ferramenta-mapa { border-style: dashed; }
+.ferramenta-icone svg { width: 24px; height: 24px; }
+.ferramenta-icone-grande { width: 84px; height: 84px; border-radius: 22px; margin: 0 auto 10px; }
+.ferramenta-icone-grande svg { width: 40px; height: 40px; }
+
+/* ferramentas ainda não lançadas: tom neutro (mantém a paleta sóbria) */
+.ferramenta-card.is-inativa .ferramenta-icone,
+.is-inativa-icone {
+  background: #eef0f3; color: #9aa1ab; box-shadow: none;
+}
+.ferramenta-card.is-inativa { background: #fbfbfc; }
+
+/* card do Mapa de Processos: acento em grafite (tech, dentro dos neutros) */
+.ferramenta-card.is-mapa .ferramenta-icone {
+  background: linear-gradient(140deg, #33373f, var(--ink));
+  box-shadow: 0 6px 14px rgba(29, 29, 31, .25);
+}
+
+.ferramenta-corpo { flex: 1; min-width: 0; }
+.ferramenta-corpo h2 { margin: 0 0 5px; font-size: 1.06rem; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.ferramenta-corpo p { margin: 0; font-size: .88rem; line-height: 1.45; color: var(--muted); }
+
+.ferramenta-seta {
+  flex: 0 0 auto; color: var(--line); display: grid; place-items: center;
+  opacity: 0; transform: translateX(-6px);
+  transition: opacity .18s ease, transform .18s ease, color .18s ease;
+}
+.ferramenta-seta svg { width: 20px; height: 20px; }
+.ferramenta-card:hover .ferramenta-seta { opacity: 1; transform: translateX(0); color: var(--red); }
+.ferramenta-card.is-mapa:hover .ferramenta-seta { color: var(--ink); }
+
+.badge-breve {
+  background: #f0f1f3; color: var(--muted); border-radius: 20px; padding: 2px 9px;
+  font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+}
+.badge-breve-grande { display: inline-block; margin-top: 14px; padding: 5px 14px; font-size: .72rem; }
+.breve-wrap .ferramenta-icone-grande { display: grid; }
+.breve-desc { max-width: 460px; margin: 8px auto 0; }
+.breve-nota { margin-top: 16px; }
 
 /* ----------------------------------------------------------- Mapa de Processos (árvore) */
 .proc-legenda { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; font-size: .82rem; }

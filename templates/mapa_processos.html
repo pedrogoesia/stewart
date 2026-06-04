@@ -11,9 +11,9 @@
     <span class="proc-nome">{{ no.nome }}</span>
     {% if ferr %}
       {% if ferr.ativo %}
-      <a class="proc-tag proc-tag-ativa" href="{{ url_for(ferr.endpoint) }}">{{ ferr.icone }} abrir</a>
+      <a class="proc-tag proc-tag-ativa" href="{{ url_for(ferr.endpoint) }}">Abrir</a>
       {% else %}
-      <span class="proc-tag">{{ ferr.icone }} em breve</span>
+      <span class="proc-tag">Em breve</span>
       {% endif %}
     {% endif %}
   </div>
@@ -29,7 +29,8 @@
 <a class="back-link" href="{{ url_for('main.dashboard') }}">← Ferramentas</a>
 <div class="page-head">
   <div>
-    <h1>🗺️ Mapa de Processos</h1>
+    <span class="dash-eyebrow">Arquitetura do negócio</span>
+    <h1>Mapa de Processos</h1>
     <p class="muted">A árvore dos processos da construtora. As caixas
       destacadas já têm uma ferramenta na plataforma — o mapa cresce conforme
       vamos mapeando o negócio.</p>

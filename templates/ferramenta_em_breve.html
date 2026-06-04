@@ -1,16 +1,16 @@
 {% extends "base.html" %}
+{% from "_icones.html" import icone %}
 {% block title %}{{ ferramenta.nome }} — em breve{% endblock %}
 
 {% block content %}
 <a class="back-link" href="{{ url_for('main.dashboard') }}">← Ferramentas</a>
 
-<div class="empty">
-  <span class="ferramenta-icone ferramenta-icone-grande"
-        style="background: {{ ferramenta.cor }}1a; color: {{ ferramenta.cor }};">{{ ferramenta.icone }}</span>
+<div class="empty breve-wrap">
+  <span class="ferramenta-icone ferramenta-icone-grande is-inativa-icone">{{ icone(ferramenta.icone) }}</span>
   <h1>{{ ferramenta.nome }}</h1>
-  <p class="muted" style="max-width: 460px; margin: 8px auto 0;">{{ ferramenta.descricao }}</p>
-  <p class="badge badge-breve" style="margin-top: 16px;">🚧 Em construção</p>
-  <p class="muted" style="margin-top: 16px;">Esta ferramenta ainda está sendo
-    desenvolvida. Em breve ela aparecerá pronta aqui no seu painel.</p>
+  <p class="muted breve-desc">{{ ferramenta.descricao }}</p>
+  <p class="badge-breve badge-breve-grande">Em construção</p>
+  <p class="muted breve-nota">Esta ferramenta ainda está sendo desenvolvida.
+    Em breve ela aparecerá pronta aqui no seu painel.</p>
 </div>
 {% endblock %}

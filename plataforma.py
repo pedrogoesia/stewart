@@ -20,8 +20,7 @@ FERRAMENTAS = [
         "nome": "Relatórios de Obras",
         "descricao": "Monte o relatório fotográfico mensal em PowerPoint, "
                      "organizado por cômodo, e baixe as fotos em .zip.",
-        "icone": "📸",
-        "cor": "#A3212B",
+        "icone": "camera",
         "endpoint": "relatorios.index",
         "ativo": True,
     },
@@ -30,8 +29,7 @@ FERRAMENTAS = [
         "nome": "Notas Fiscais",
         "descricao": "Organização e controle das notas fiscais de materiais e "
                      "serviços da obra.",
-        "icone": "🧾",
-        "cor": "#1f7a4d",
+        "icone": "receipt",
         "endpoint": None,
         "ativo": False,
     },
@@ -40,8 +38,7 @@ FERRAMENTAS = [
         "nome": "Orçamentos",
         "descricao": "Montagem e acompanhamento de orçamentos de obra, do custo "
                      "à proposta.",
-        "icone": "💰",
-        "cor": "#b8860b",
+        "icone": "calculator",
         "endpoint": None,
         "ativo": False,
     },
