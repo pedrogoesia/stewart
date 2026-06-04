@@ -43,11 +43,8 @@
       {% endif %}
     {% endfor %}
 
-    <div class="sb-sec">Empresa</div>
     <a class="sb-item {% if request.path == url_for('main.workflows') %}ativo{% endif %}"
        href="{{ url_for('main.workflows') }}">{{ icone('flow') }} Workflows</a>
-    <a class="sb-item {% if request.path == url_for('main.empresa') %}ativo{% endif %}"
-       href="{{ url_for('main.empresa') }}">{{ icone('building') }} Empresa</a>
     {% if current_user.is_admin %}
     <a class="sb-item {% if request.path == url_for('auth.admin_usuarios') %}ativo{% endif %}"
        href="{{ url_for('auth.admin_usuarios') }}">{{ icone('id') }} Usuários</a>
