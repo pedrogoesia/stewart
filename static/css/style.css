@@ -207,7 +207,9 @@ body.arrastando { cursor: grabbing; user-select: none; }
 .ia-images img {
   width: 100%; aspect-ratio: 4 / 3; object-fit: contain;
   background: #f0f1f3; border: 1px solid var(--line); border-radius: 12px; display: block;
+  cursor: zoom-in;
 }
+#ia-result-box img { cursor: zoom-in; }
 #ia-result-box {
   width: 100%; aspect-ratio: 4 / 3; background: #f0f1f3;
   border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
@@ -254,6 +256,19 @@ body.arrastando { cursor: grabbing; user-select: none; }
 
 @keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ----------------------------------------------------------- Lightbox (imagem em tela cheia) */
+.lightbox {
+  border: 0; padding: 0; background: transparent; box-shadow: none;
+  max-width: 96vw; max-height: 96vh; overflow: visible;
+}
+.lightbox::backdrop { background: rgba(0, 0, 0, .85); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.lightbox[open] { animation: modal-in .2s cubic-bezier(.2, .8, .25, 1); }
+.lightbox[open]::backdrop { animation: backdrop-in .2s ease; }
+.lightbox img {
+  display: block; max-width: 96vw; max-height: 96vh;
+  object-fit: contain; border-radius: 8px; cursor: zoom-out;
+}
 
 .empty { text-align: center; padding: 48px 16px; }
 .empty .btn { margin-top: 12px; }

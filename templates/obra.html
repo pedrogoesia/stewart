@@ -99,7 +99,7 @@
   <div class="ia-images">
     <figure>
       <figcaption><span class="ia-dot ia-dot-orig"></span>Original</figcaption>
-      <img id="ia-original" alt="">
+      <img id="ia-original" alt="" onclick="abrirLightbox(this.src)">
     </figure>
     <figure>
       <figcaption><span class="ia-dot ia-dot-ia"></span>Resultado da IA</figcaption>
@@ -139,6 +139,11 @@
       <button type="submit" class="btn btn-primary">Salvar</button>
     </div>
   </form>
+</dialog>
+
+<!-- Visualizador de imagem em tela cheia (clique na imagem ou Esc para fechar) -->
+<dialog id="lightbox" class="lightbox" onclick="this.close()">
+  <img id="lightbox-img" alt="">
 </dialog>
 {% endblock %}
 

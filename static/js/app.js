@@ -137,6 +137,13 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+// Abre uma imagem em tela cheia (lightbox). Usado na grade e no pop-up de IA.
+function abrirLightbox(src) {
+  if (!src) return;
+  document.getElementById("lightbox-img").src = src;
+  document.getElementById("lightbox").showModal();
+}
+
 // -------------------------------------------------- Arrastar / reordenar
 // Implementação própria com Pointer Events (funciona no mouse e no toque),
 // sem depender de bibliotecas externas. A foto é arrastada pela imagem.
@@ -156,6 +163,26 @@ function habilitarArrasto(grid) {
 function iniciarArrasto(e, grid, item, handle) {
   if (arrasto || e.button === 2) return;     // ignora clique direito
   e.preventDefault();
+
+  // Ainda não começa a arrastar: só registra o ponto inicial. O arraste de
+  // verdade começa quando o ponteiro se move além do limiar (ver aoMover).
+  // Se soltar sem mover, é um clique → abre a imagem em tela cheia.
+  arrasto = {
+    grid, item, handle,
+    startX: e.clientX,
+    startY: e.clientY,
+    iniciado: false,
+  };
+
+  handle.setPointerCapture(e.pointerId);
+  handle.addEventListener("pointermove", aoMover);
+  handle.addEventListener("pointerup", aoSoltar);
+  handle.addEventListener("pointercancel", aoCancelar);
+}
+
+// Promove o estado "pendente" para um arraste de verdade (a foto passa a flutuar).
+function comecarArrasto() {
+  const { item, startX, startY } = arrasto;
   const rect = item.getBoundingClientRect();
 
   // espaço tracejado que mostra onde a foto vai cair
@@ -164,12 +191,10 @@ function iniciarArrasto(e, grid, item, handle) {
   placeholder.style.height = rect.height + "px";
   item.after(placeholder);
 
-  arrasto = {
-    grid, item, handle, placeholder,
-    dx: e.clientX - rect.left,
-    dy: e.clientY - rect.top,
-    moveu: false,
-  };
+  arrasto.placeholder = placeholder;
+  arrasto.dx = startX - rect.left;
+  arrasto.dy = startY - rect.top;
+  arrasto.iniciado = true;
 
   // a foto "flutua" e segue o ponteiro
   item.classList.add("dragging");
@@ -180,12 +205,6 @@ function iniciarArrasto(e, grid, item, handle) {
     margin: "0",
     zIndex: "1000",
   });
-  moverFlutuante(e.clientX, e.clientY);
-
-  handle.setPointerCapture(e.pointerId);
-  handle.addEventListener("pointermove", aoMover);
-  handle.addEventListener("pointerup", aoSoltar);
-  handle.addEventListener("pointercancel", aoSoltar);
   document.body.classList.add("arrastando");
 }
 
@@ -196,7 +215,12 @@ function moverFlutuante(x, y) {
 
 function aoMover(e) {
   if (!arrasto) return;
-  arrasto.moveu = true;
+  if (!arrasto.iniciado) {
+    // só vira arraste depois de mover ~6px; abaixo disso ainda pode ser clique
+    const dist = Math.hypot(e.clientX - arrasto.startX, e.clientY - arrasto.startY);
+    if (dist < 6) return;
+    comecarArrasto();
+  }
   moverFlutuante(e.clientX, e.clientY);
   rolarSeNecessario(e.clientY);
   const ref = posicaoDestino(arrasto.grid, e.clientX, e.clientY);
@@ -211,22 +235,47 @@ function rolarSeNecessario(y) {
   else if (y > window.innerHeight - margem) window.scrollBy(0, 12);
 }
 
-function aoSoltar() {
-  if (!arrasto) return;
-  const { grid, item, handle, placeholder } = arrasto;
+function desligarArrasto() {
+  const { handle } = arrasto;
   handle.removeEventListener("pointermove", aoMover);
   handle.removeEventListener("pointerup", aoSoltar);
-  handle.removeEventListener("pointercancel", aoSoltar);
+  handle.removeEventListener("pointercancel", aoCancelar);
+}
+
+function aoSoltar() {
+  if (!arrasto) return;
+  const { grid, item, handle, placeholder, iniciado } = arrasto;
+  desligarArrasto();
+
+  if (!iniciado) {
+    // não arrastou: foi um clique → abre a imagem em tela cheia
+    arrasto = null;
+    abrirLightbox(handle.src);
+    return;
+  }
 
   grid.insertBefore(item, placeholder);
   placeholder.remove();
   item.classList.remove("dragging");
   item.style.cssText = "";
   document.body.classList.remove("arrastando");
-
-  const moveu = arrasto.moveu;
   arrasto = null;
-  if (moveu) salvarOrdem(grid);
+  salvarOrdem(grid);
+}
+
+// Cancelamento (ex.: rolagem no toque): desfaz sem abrir o lightbox.
+function aoCancelar() {
+  if (!arrasto) return;
+  const { grid, item, placeholder, iniciado } = arrasto;
+  desligarArrasto();
+  if (iniciado) {
+    grid.insertBefore(item, placeholder);
+    placeholder.remove();
+    item.classList.remove("dragging");
+    item.style.cssText = "";
+    document.body.classList.remove("arrastando");
+  }
+  arrasto = null;
 }
 
 // Retorna o elemento antes do qual o arrastado deve ser inserido (ou null = fim)
@@ -305,7 +354,7 @@ async function gerarIA() {
     const resp = await postForm(`/foto/${iaState.fotoId}/editar-ia`, { prompt });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.erro || "Falha ao gerar.");
-    box.innerHTML = `<img src="${data.preview_url}?t=${Date.now()}" alt="">`;
+    box.innerHTML = `<img src="${data.preview_url}?t=${Date.now()}" alt="" onclick="abrirLightbox(this.src)">`;
     iaState.temPreview = true;
     document.getElementById("ia-aplicar").hidden = false;
   } catch (e) {
