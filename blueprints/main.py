@@ -1,9 +1,9 @@
-"""Núcleo da plataforma: painel inicial (vitrine) e mapa de processos."""
+"""Núcleo da plataforma: painel inicial, workflows e página da empresa."""
 
 from flask import Blueprint, abort, redirect, render_template, url_for
 from flask_login import current_user, login_required
 
-from plataforma import FERRAMENTAS, PROCESSOS, ferramenta_por_slug
+from plataforma import EMPRESA, FERRAMENTAS, PROCESSOS, ferramenta_por_slug
 
 bp = Blueprint("main", __name__)
 
@@ -27,9 +27,17 @@ def ferramenta(slug):
     return render_template("ferramenta_em_breve.html", ferramenta=f)
 
 
-@bp.route("/mapa-de-processos")
+@bp.route("/workflows")
 @login_required
-def mapa_processos():
-    """Diagrama em árvore dos processos da construtora."""
-    return render_template("mapa_processos.html", processos=PROCESSOS,
+def workflows():
+    """Quadro (board) com os fluxos/processos da construtora."""
+    return render_template("workflows.html", processos=PROCESSOS,
                            ferramentas=FERRAMENTAS)
+
+
+@bp.route("/empresa")
+@login_required
+def empresa():
+    """Painel institucional da Stewart Engenharia (somente front por ora)."""
+    return render_template("empresa.html", empresa=EMPRESA)
+

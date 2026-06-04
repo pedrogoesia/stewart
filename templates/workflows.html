@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Mapa de Processos — Stewart{% endblock %}
+{% block title %}Workflows — Stewart{% endblock %}
 
 {% macro no_processo(no, ferramentas) %}
 <li>
@@ -30,18 +30,23 @@
 <div class="page-head">
   <div>
     <span class="dash-eyebrow">Arquitetura do negócio</span>
-    <h1>Mapa de Processos</h1>
-    <p class="muted">A árvore dos processos da construtora. As caixas
-      destacadas já têm uma ferramenta na plataforma — o mapa cresce conforme
+    <h1>Workflows</h1>
+    <p class="muted">O quadro de fluxos e processos da construtora. As caixas
+      destacadas já têm uma ferramenta na plataforma — o quadro cresce conforme
       vamos mapeando o negócio.</p>
   </div>
 </div>
 
-<div class="panel">
-  <p class="muted proc-legenda">
-    <span class="proc-amostra proc-com-ferramenta"></span> processo com ferramenta &nbsp;·&nbsp;
-    <span class="proc-amostra"></span> processo a mapear/automatizar
-  </p>
+<div class="workflow-board">
+  <div class="workflow-board-head">
+    <span class="workflow-board-titulo">Workflows</span>
+    <span class="proc-legenda">
+      <span class="proc-amostra proc-com-ferramenta"></span> com ferramenta
+      &nbsp;·&nbsp;
+      <span class="proc-amostra"></span> a mapear
+    </span>
+  </div>
+
   <div class="proc-arvore">
     <ul class="proc-raiz">
       {{ no_processo(processos, ferramentas) }}

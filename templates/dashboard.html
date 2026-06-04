@@ -22,11 +22,20 @@
   </a>
   {% endfor %}
 
-  <a class="ferramenta-card is-mapa" href="{{ url_for('main.mapa_processos') }}">
+  <a class="ferramenta-card is-mapa" href="{{ url_for('main.workflows') }}">
     <span class="ferramenta-icone">{{ icone('flow') }}</span>
     <div class="ferramenta-corpo">
-      <h2>Mapa de Processos</h2>
-      <p>A árvore de processos da construtora e onde cada ferramenta se encaixa.</p>
+      <h2>Workflows</h2>
+      <p>O quadro de fluxos e processos da construtora e onde cada ferramenta se encaixa.</p>
+    </div>
+    <span class="ferramenta-seta">{{ icone('arrow') }}</span>
+  </a>
+
+  <a class="ferramenta-card is-empresa" href="{{ url_for('main.empresa') }}">
+    <span class="ferramenta-icone">{{ icone('building') }}</span>
+    <div class="ferramenta-corpo">
+      <h2>Empresa</h2>
+      <p>Painel institucional da Stewart Engenharia: dados, contato e informações.</p>
     </div>
     <span class="ferramenta-seta">{{ icone('arrow') }}</span>
   </a>

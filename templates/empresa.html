@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone %}
+{% block title %}{{ empresa.nome }} — Empresa{% endblock %}
+
+{% macro bloco(titulo, ico, itens) %}
+<section class="emp-card">
+  <h2 class="emp-card-titulo"><span class="emp-card-ico">{{ icone(ico) }}</span>{{ titulo }}</h2>
+  <dl class="emp-dados">
+    {% for item in itens %}
+    <div class="emp-linha">
+      <dt>{{ item.rotulo }}</dt>
+      <dd>{{ item.valor }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+</section>
+{% endmacro %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('main.dashboard') }}">← Ferramentas</a>
+
+<!-- Cabeçalho institucional -->
+<div class="emp-hero">
+  <span class="emp-hero-ico">{{ icone('building') }}</span>
+  <div class="emp-hero-texto">
+    <span class="dash-eyebrow">Empresa</span>
+    <h1>{{ empresa.nome }}</h1>
+    <p class="muted">{{ empresa.tagline }}</p>
+  </div>
+</div>
+
+<p class="emp-aviso">Prévia da página institucional — os dados serão conectados
+  ao sistema em breve. Por enquanto, é só a interface (front-end).</p>
+
+<!-- Indicadores -->
+<div class="emp-kpis">
+  {% for kpi in empresa.indicadores %}
+  <div class="emp-kpi">
+    <span class="emp-kpi-valor">{{ kpi.valor }}</span>
+    <span class="emp-kpi-rotulo">{{ kpi.rotulo }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Sobre -->
+<section class="emp-card emp-card-largo">
+  <h2 class="emp-card-titulo"><span class="emp-card-ico">{{ icone('layers') }}</span>Sobre a empresa</h2>
+  <p class="muted emp-sobre">{{ empresa.sobre }}</p>
+  <div class="emp-chips">
+    {% for area in empresa.areas %}<span class="emp-chip">{{ area }}</span>{% endfor %}
+  </div>
+</section>
+
+<!-- Grade de informações -->
+<div class="emp-grid">
+  {{ bloco("Dados cadastrais", "id", empresa.cadastro) }}
+  {{ bloco("Contato", "pin", empresa.contato) }}
+  {{ bloco("Responsável técnico", "badge", empresa.tecnico) }}
+
+  <section class="emp-card">
+    <h2 class="emp-card-titulo"><span class="emp-card-ico">{{ icone('doc') }}</span>Documentos</h2>
+    <ul class="emp-docs">
+      {% for doc in empresa.documentos %}
+      <li><span class="emp-doc-ico">{{ icone('doc') }}</span>{{ doc }}
+        <span class="badge-breve">pendente</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

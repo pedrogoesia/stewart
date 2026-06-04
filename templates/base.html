@@ -17,7 +17,8 @@
     {% if current_user.is_authenticated %}
     <nav class="user-menu">
       <a class="user-link" href="{{ url_for('main.dashboard') }}">Ferramentas</a>
-      <a class="user-link" href="{{ url_for('main.mapa_processos') }}">Mapa de Processos</a>
+      <a class="user-link" href="{{ url_for('main.workflows') }}">Workflows</a>
+      <a class="user-link" href="{{ url_for('main.empresa') }}">Empresa</a>
       {% if current_user.is_admin %}
       <a class="user-link" href="{{ url_for('auth.admin_usuarios') }}">Usuários</a>
       {% endif %}

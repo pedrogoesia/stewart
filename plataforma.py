@@ -53,6 +53,52 @@ def ferramenta_por_slug(slug):
 
 
 # ---------------------------------------------------------------------------
+# Painel institucional da empresa ("harness" da Stewart Engenharia).
+# Por enquanto é só o front: estes valores são placeholders que depois serão
+# carregados do banco/back-end. Edite à vontade.
+# ---------------------------------------------------------------------------
+EMPRESA = {
+    "nome": "Stewart Engenharia",
+    "tagline": "Construção, reforma e incorporação",
+    "sobre": "Espaço reservado para a apresentação institucional da Stewart "
+             "Engenharia — história, missão, valores e diferenciais. Este texto "
+             "será editável e carregado do sistema em breve.",
+    "cadastro": [
+        {"rotulo": "Razão social", "valor": "—"},
+        {"rotulo": "CNPJ", "valor": "—"},
+        {"rotulo": "Inscrição estadual", "valor": "—"},
+        {"rotulo": "Inscrição municipal", "valor": "—"},
+        {"rotulo": "Fundação", "valor": "—"},
+    ],
+    "contato": [
+        {"rotulo": "Endereço", "valor": "—"},
+        {"rotulo": "Telefone", "valor": "—"},
+        {"rotulo": "E-mail", "valor": "—"},
+        {"rotulo": "Site", "valor": "—"},
+    ],
+    "tecnico": [
+        {"rotulo": "Responsável técnico", "valor": "—"},
+        {"rotulo": "CREA / CAU", "valor": "—"},
+        {"rotulo": "ART vigente", "valor": "—"},
+    ],
+    "areas": ["Obras residenciais", "Obras comerciais", "Reformas",
+              "Incorporação", "Gerenciamento de obras"],
+    "indicadores": [
+        {"rotulo": "Obras ativas", "valor": "—"},
+        {"rotulo": "Equipe", "valor": "—"},
+        {"rotulo": "Anos de atuação", "valor": "—"},
+        {"rotulo": "Obras entregues", "valor": "—"},
+    ],
+    "documentos": [
+        "Contrato social",
+        "Certidões (CND federal, estadual, municipal, FGTS)",
+        "Alvarás e licenças",
+        "Certificações de qualidade",
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
 # Mapa de processos da construtora (árvore). Cada nó pode apontar para uma
 # ferramenta (campo "ferramenta" = slug), criando a ponte processo → ferramenta.
 # Vá enriquecendo esta árvore conforme mapeia o negócio.
