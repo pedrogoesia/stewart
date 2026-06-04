@@ -282,7 +282,9 @@ function abrirEditarIA(fotoId, btn) {
 
 function resetarResultadoIA() {
   document.getElementById("ia-result-box").innerHTML =
-    '<span class="muted">Gere para ver o resultado aqui</span>';
+    '<div class="ia-result-empty">' +
+    '<span class="ia-result-icon">🖼️</span>' +
+    '<span class="muted">Gere para ver o resultado aqui</span></div>';
   document.getElementById("ia-aplicar").hidden = true;
   document.getElementById("ia-gerar").disabled = false;
 }

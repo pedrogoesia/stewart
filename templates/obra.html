@@ -87,20 +87,37 @@
 {% endif %}
 
 <dialog id="ia-modal" class="modal modal-ia">
-  <h3>✨ Editar foto com IA</h3>
-  <p class="muted ia-aviso">Descreva o que mudar. A foto só é trocada depois que você autorizar.</p>
+  <header class="ia-header">
+    <span class="ia-badge">✨</span>
+    <div class="ia-head-text">
+      <h3>Editar foto com IA</h3>
+      <p class="muted ia-aviso">Descreva o que mudar. A foto só é trocada depois que você autorizar.</p>
+    </div>
+    <button type="button" class="ia-close" onclick="fecharIA()" aria-label="Fechar">×</button>
+  </header>
+
   <div class="ia-images">
     <figure>
-      <figcaption>Original</figcaption>
+      <figcaption><span class="ia-dot ia-dot-orig"></span>Original</figcaption>
       <img id="ia-original" alt="">
     </figure>
     <figure>
-      <figcaption>Resultado da IA</figcaption>
-      <div id="ia-result-box"><span class="muted">Gere para ver o resultado aqui</span></div>
+      <figcaption><span class="ia-dot ia-dot-ia"></span>Resultado da IA</figcaption>
+      <div id="ia-result-box">
+        <div class="ia-result-empty">
+          <span class="ia-result-icon">🖼️</span>
+          <span class="muted">Gere para ver o resultado aqui</span>
+        </div>
+      </div>
     </figure>
   </div>
-  <textarea id="ia-prompt" rows="2"
-            placeholder="Ex.: remova a vassoura encostada na parede"></textarea>
+
+  <label class="ia-prompt-field">
+    <span class="ia-prompt-label">O que você quer mudar?</span>
+    <textarea id="ia-prompt" rows="2"
+              placeholder="Ex.: remova a vassoura encostada na parede"></textarea>
+  </label>
+
   <div class="modal-actions">
     <button type="button" class="btn btn-ghost" onclick="fecharIA()">Fechar</button>
     <button type="button" class="btn btn-primary" id="ia-gerar" onclick="gerarIA()">Gerar</button>
