@@ -27,6 +27,20 @@ from utils import (comodos_com_fotos, foto_abs_path, periodo_label,
 bp = Blueprint("relatorios", __name__)
 
 
+def _foto_path_or_404(arquivo):
+    try:
+        return foto_abs_path(arquivo)
+    except ValueError:
+        abort(404)
+
+
+def _remover_foto_arquivo(arquivo):
+    try:
+        os.remove(foto_abs_path(arquivo))
+    except (OSError, ValueError):
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Páginas
 # ---------------------------------------------------------------------------
@@ -127,10 +141,7 @@ def renomear_comodo(comodo_id):
 def excluir_comodo(comodo_id):
     comodo = comodo_do_usuario(comodo_id)
     for f in comodo.fotos:
-        try:
-            os.remove(foto_abs_path(f.arquivo))
-        except OSError:
-            pass
+        _remover_foto_arquivo(f.arquivo)
     db.session.delete(comodo)
     db.session.commit()
     return jsonify({"ok": True})
@@ -207,10 +218,7 @@ def atualizar_descricao(foto_id):
 @login_required
 def excluir_foto(foto_id):
     foto = foto_do_usuario(foto_id)
-    try:
-        os.remove(foto_abs_path(foto.arquivo))
-    except OSError:
-        pass
+    _remover_foto_arquivo(foto.arquivo)
     db.session.delete(foto)
     db.session.commit()
     return jsonify({"ok": True})
@@ -226,6 +234,7 @@ def servir_foto(filename):
     except (ValueError, IndexError):
         abort(404)
     obra_do_usuario(obra_id)   # aborta 404 se não for o dono
+    _foto_path_or_404(filename)
     return send_from_directory(UPLOAD_DIR, filename)
 
 
@@ -244,7 +253,7 @@ def editar_foto_ia(foto_id):
     if not prompt:
         return jsonify({"erro": "Descreva a alteração desejada."}), 400
 
-    origem = foto_abs_path(foto.arquivo)
+    origem = _foto_path_or_404(foto.arquivo)
     if not os.path.exists(origem):
         return jsonify({"erro": "Arquivo da foto não encontrado."}), 404
 
@@ -254,7 +263,7 @@ def editar_foto_ia(foto_id):
         return jsonify({"erro": str(e)}), 502
 
     pv_rel = preview_rel(foto.arquivo)
-    with open(foto_abs_path(pv_rel), "wb") as fh:
+    with open(_foto_path_or_404(pv_rel), "wb") as fh:
         fh.write(novos_bytes)
 
     return jsonify({
@@ -267,11 +276,11 @@ def editar_foto_ia(foto_id):
 @login_required
 def aplicar_edicao_ia(foto_id):
     foto = foto_do_usuario(foto_id)
-    preview_abs = foto_abs_path(preview_rel(foto.arquivo))
+    preview_abs = _foto_path_or_404(preview_rel(foto.arquivo))
     if not os.path.exists(preview_abs):
         return jsonify({"erro": "Nenhuma prévia para aplicar."}), 400
     # Substitui o arquivo original pela versão editada (mantém o mesmo nome).
-    os.replace(preview_abs, foto_abs_path(foto.arquivo))
+    os.replace(preview_abs, _foto_path_or_404(foto.arquivo))
     return jsonify({
         "ok": True,
         "url": url_for("relatorios.servir_foto", filename=foto.arquivo),
@@ -282,10 +291,10 @@ def aplicar_edicao_ia(foto_id):
 @login_required
 def descartar_edicao_ia(foto_id):
     foto = foto_do_usuario(foto_id)
-    preview_abs = foto_abs_path(preview_rel(foto.arquivo))
+    preview_abs = _foto_path_or_404(preview_rel(foto.arquivo))
     try:
         os.remove(preview_abs)
-    except OSError:
+    except (OSError, ValueError):
         pass
     return jsonify({"ok": True})
 
@@ -301,19 +310,29 @@ def baixar_relatorio(obra_id):
 
     comodos = []
     for grupo in comodos_com_fotos(obra):
-        fotos = [{"path": foto_abs_path(f.arquivo),
-                  "descricao": f.descricao} for f in grupo["fotos"]]
+        fotos = []
+        for f in grupo["fotos"]:
+            try:
+                path = foto_abs_path(f.arquivo)
+            except ValueError:
+                continue
+            fotos.append({"path": path, "descricao": f.descricao})
         if fotos:
             comodos.append({"nome": grupo["comodo"].nome, "fotos": fotos})
 
     out = io.BytesIO()
     tmp_path = os.path.join(DATA_DIR, f"_relatorio_{uuid.uuid4().hex}.pptx")
-    gerar_relatorio(TEMPLATE_PATH, tmp_path,
-                    {"nome": obra.nome, "endereco": obra.endereco},
-                    label, comodos)
-    with open(tmp_path, "rb") as fh:
-        out.write(fh.read())
-    os.remove(tmp_path)
+    try:
+        gerar_relatorio(TEMPLATE_PATH, tmp_path,
+                        {"nome": obra.nome, "endereco": obra.endereco},
+                        label, comodos)
+        with open(tmp_path, "rb") as fh:
+            out.write(fh.read())
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
     out.seek(0)
 
     nome_arq = f"Relatorio_{slugify(obra.nome)}_{slugify(label)}.pptx"
@@ -333,7 +352,10 @@ def baixar_fotos_zip(obra_id):
         for grupo in comodos_com_fotos(obra):
             comodo_slug = slugify(grupo["comodo"].nome, "comodo")
             for i, f in enumerate(grupo["fotos"], start=1):
-                src = foto_abs_path(f.arquivo)
+                try:
+                    src = foto_abs_path(f.arquivo)
+                except ValueError:
+                    continue
                 if not os.path.exists(src):
                     continue
                 desc = slugify(f.descricao, "")[:40]
