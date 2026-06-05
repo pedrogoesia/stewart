@@ -3,8 +3,12 @@
   // Saudação conforme a hora local do usuário.
   const saud = document.getElementById("saud");
   if (saud) {
-    const h = new Date().getHours();
-    saud.textContent = h < 12 ? "Bom dia" : (h < 18 ? "Bom dia" : "Bom dia");
+    const h = Number(new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date()));
+    saud.textContent = h < 12 ? "Bom dia" : (h < 18 ? "Boa tarde" : "Boa noite");
   }
 
   const form = document.getElementById("harnessForm");

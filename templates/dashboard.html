@@ -8,7 +8,7 @@
 
   <div class="harness-hero">
     <h1 class="harness-titulo"><span id="saud">Bom dia</span>{% if current_user.nome %}, {{ current_user.nome.split(' ')[0] }}{% endif %}.
-      <span class="harness-grad">A inteligência operacional da Stewart.</span></h1>
+      <span class="harness-grad">Como o OS da Stewart pode te ajudar?</span></h1>
 
     <p class="harness-subtitulo">
       Consulte dados da companhia, acione agentes de IA e execute rotinas em um
@@ -18,7 +18,7 @@
 
     <form class="harness-form" id="harnessForm" autocomplete="off">
       <textarea id="harnessInput" class="harness-input" rows="1"
-                placeholder="Pergunte sobre a operação, peça uma análise ou acione um agente de IA..."></textarea>
+                placeholder=""></textarea>
       <button type="submit" class="harness-send" title="Enviar">{{ icone('send') }}</button>
     </form>
 

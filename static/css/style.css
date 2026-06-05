@@ -565,7 +565,7 @@ body.has-sidebar .conteudo { margin-left: 260px; }
 
 /* ----------------------------------------------------------- Harness (assistente) */
 .harness {
-  position: relative; max-width: 760px; margin: 0 auto;
+  position: relative; max-width: 920px; margin: 0 auto;
   min-height: calc(100vh - 120px);
   display: flex; flex-direction: column; justify-content: center;
 }
