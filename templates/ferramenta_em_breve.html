@@ -13,4 +13,15 @@
   <p class="muted breve-nota">Esta ferramenta ainda está sendo desenvolvida.
     Em breve ela aparecerá pronta aqui no seu painel.</p>
 </div>
+
+{% if ferramenta.recursos %}
+<div class="breve-recursos">
+  <h2>O que ela vai resolver</h2>
+  <ul>
+    {% for r in ferramenta.recursos %}
+    <li><span class="breve-check">{{ icone('badge') }}</span>{{ r }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
 {% endblock %}

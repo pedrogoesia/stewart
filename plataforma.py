@@ -51,6 +51,24 @@ FERRAMENTAS = [
         "endpoint": None,
         "ativo": False,
     },
+    {
+        "slug": "agenda",
+        "nome": "Agenda da Obra",
+        "descricao": "Tudo o que precisa ser feito em cada obra, com prazos e "
+                     "lembretes — para o engenheiro não perder nenhuma data, "
+                     "mesmo tocando 2 ou 3 obras ao mesmo tempo.",
+        "icone": "calendar",
+        "endpoint": None,
+        "ativo": False,
+        "recursos": [
+            "Lista de tarefas por obra (toque várias obras sem se perder)",
+            "Prazos com alertas: para hoje, para esta semana e atrasadas",
+            "Visão única \"o que fazer hoje\" somando todas as suas obras",
+            "Lembretes automáticos avisados pelo próprio Stewart OS",
+            "Marcar como concluído, reprogramar e ver o histórico",
+            "Modelos de tarefas recorrentes por etapa da obra",
+        ],
+    },
 ]
 
 
@@ -81,6 +99,10 @@ WORKFLOWS = [
         "etapas": [
             {"nome": "Planejamento da obra", "status": "manual",
              "descricao": "Escopo, cronograma e definição dos serviços."},
+            {"nome": "Agenda e prazos", "status": "validacao",
+             "validacao_pct": 5, "ferramenta": "agenda",
+             "descricao": "Tarefas e prazos de cada obra, com lembretes para "
+                          "o engenheiro não perder datas."},
             {"nome": "Compras e suprimentos", "status": "manual",
              "descricao": "Cotação, pedidos e recebimento de materiais."},
             {"nome": "Acompanhamento fotográfico", "status": "validacao",
