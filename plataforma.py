@@ -69,6 +69,40 @@ FERRAMENTAS = [
             "Modelos de tarefas recorrentes por etapa da obra",
         ],
     },
+    {
+        "slug": "manual-proprietario",
+        "nome": "Manual do Proprietário",
+        "descricao": "Gere o manual do proprietário do imóvel: garantias, "
+                     "manutenção e como usar cada sistema da unidade — pronto "
+                     "para entregar ao cliente.",
+        "icone": "book",
+        "endpoint": None,
+        "ativo": False,
+        "recursos": [
+            "Modelo seguindo a norma NBR 14037 (manual do proprietário)",
+            "Garantias por sistema: estrutura, hidráulica, elétrica, acabamentos",
+            "Plano de manutenção preventiva com prazos",
+            "Lista de fornecedores e contatos da obra",
+            "Reaproveitamento do modelo entre unidades do empreendimento",
+            "Geração em PDF para entregar ao comprador",
+        ],
+    },
+    {
+        "slug": "memorial-descritivo",
+        "nome": "Memorial Descritivo",
+        "descricao": "Monte o memorial descritivo da obra: materiais, "
+                     "acabamentos e especificações técnicas de cada ambiente.",
+        "icone": "clipboard",
+        "endpoint": None,
+        "ativo": False,
+        "recursos": [
+            "Especificação de materiais e acabamentos por ambiente",
+            "Padrões por modelo de empreendimento (alto, médio, popular)",
+            "Reaproveitamento entre obras semelhantes",
+            "Base para contrato, alvará e entrega ao cliente",
+            "Geração em PDF/Word para anexar à documentação",
+        ],
+    },
 ]
 
 
