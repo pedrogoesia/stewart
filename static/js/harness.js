@@ -4,7 +4,7 @@
   const saud = document.getElementById("saud");
   if (saud) {
     const h = new Date().getHours();
-    saud.textContent = h < 12 ? "Bom dia" : (h < 18 ? "Boa tarde" : "Boa noite");
+    saud.textContent = h < 12 ? "Bom dia" : (h < 18 ? "Bom dia" : "Bom dia");
   }
 
   const form = document.getElementById("harnessForm");
@@ -36,9 +36,9 @@
     ajustarAltura();
     input.focus();
     setTimeout(() => {
-      bolha("🚧 O assistente da Stewart ainda está em construção. Em breve " +
-            "vou poder te ajudar por aqui. Por enquanto, use as ferramentas " +
-            "na barra lateral.", "bot");
+      bolha("A Stewart OS conecta contexto operacional, dados da companhia e " +
+            "agentes de IA para apoiar consultas, rotinas e decisões com mais " +
+            "clareza.", "bot");
     }, 300);
   });
 

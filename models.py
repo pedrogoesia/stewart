@@ -77,7 +77,10 @@ class Foto(db.Model):
 
 @login_manager.user_loader
 def carregar_usuario(user_id):
-    return db.session.get(Usuario, int(user_id))
+    try:
+        return db.session.get(Usuario, int(user_id))
+    except (TypeError, ValueError):
+        return None
 
 
 # ---------------------------------------------------------------------------

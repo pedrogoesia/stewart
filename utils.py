@@ -5,9 +5,13 @@ import re
 import unicodedata
 from datetime import datetime
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, UnidentifiedImageError
+from werkzeug.utils import safe_join
 
-from config import JPEG_QUALITY, MAX_IMG_SIDE, MESES, UPLOAD_DIR
+from config import (ALLOWED_IMAGE_FORMATS, JPEG_QUALITY, MAX_IMAGE_PIXELS,
+                    MAX_IMG_SIDE, MESES, UPLOAD_DIR)
+
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
 
 
 def slugify(text, default="item"):
@@ -28,7 +32,13 @@ def periodo_label(mes, ano):
 
 def foto_abs_path(arquivo):
     # O caminho é guardado sempre com "/"; convertemos para o separador do SO.
-    return os.path.join(UPLOAD_DIR, *arquivo.split("/"))
+    partes = (arquivo or "").replace("\\", "/").split("/")
+    if not partes or any(p in ("", ".", "..") for p in partes):
+        raise ValueError("Caminho de foto invalido.")
+    caminho = safe_join(UPLOAD_DIR, *partes)
+    if caminho is None:
+        raise ValueError("Caminho de foto fora da pasta de uploads.")
+    return caminho
 
 
 def preview_rel(arquivo):
@@ -38,7 +48,13 @@ def preview_rel(arquivo):
 
 def processar_imagem(file_storage, dest_path):
     """Corrige orientação (EXIF), redimensiona e salva como JPEG."""
-    img = Image.open(file_storage.stream)
+    try:
+        file_storage.stream.seek(0)
+        img = Image.open(file_storage.stream)
+        if img.format not in ALLOWED_IMAGE_FORMATS:
+            raise ValueError("Formato de imagem nao permitido.")
+    except UnidentifiedImageError as exc:
+        raise ValueError("Arquivo enviado nao e uma imagem valida.") from exc
     img = ImageOps.exif_transpose(img)
     if img.mode not in ("RGB", "L"):
         img = img.convert("RGB")
@@ -61,7 +77,7 @@ def remover_arquivos_da_obra(obra):
         for f in c.fotos:
             try:
                 os.remove(foto_abs_path(f.arquivo))
-            except OSError:
+            except (OSError, ValueError):
                 pass
 
 

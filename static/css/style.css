@@ -579,14 +579,21 @@ body.harness-ativa .harness { justify-content: flex-start; padding-top: 24px; }
 .harness-hero { position: relative; z-index: 1; }
 
 .harness-titulo {
-  text-align: center; font-size: 2.1rem; font-weight: 600; margin: 0 0 26px;
+  text-align: center; font-size: 2.1rem; font-weight: 600; margin: 0 0 14px;
   letter-spacing: -.02em; line-height: 1.16; color: #4a4744;
 }
 .harness-grad {
   background: linear-gradient(95deg, var(--red) 0%, var(--red-bright) 55%, #db8275 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-@media (max-width: 600px) { .harness-titulo { font-size: 1.45rem; } }
+.harness-subtitulo {
+  max-width: 680px; margin: 0 auto 24px; text-align: center;
+  color: #68615b; font-size: 1rem; line-height: 1.55;
+}
+@media (max-width: 600px) {
+  .harness-titulo { font-size: 1.45rem; }
+  .harness-subtitulo { font-size: .92rem; margin-bottom: 18px; }
+}
 
 .harness-form {
   display: flex; align-items: flex-end; gap: 8px;
@@ -607,6 +614,19 @@ body.harness-ativa .harness { justify-content: flex-start; padding-top: 24px; }
 .harness-send:hover { filter: brightness(1.06); }
 .harness-send svg { width: 20px; height: 20px; }
 
+.harness-contexto {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+  margin-top: 14px;
+}
+.harness-contexto span {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid rgba(168, 71, 61, .14);
+  background: rgba(255, 255, 255, .58);
+  color: #706862; border-radius: 999px; padding: 6px 10px;
+  font-size: .78rem; font-weight: 600;
+}
+.harness-contexto svg { width: 14px; height: 14px; color: var(--red); }
+
 .harness-chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 18px; }
 .harness-chip {
   display: inline-flex; align-items: center; gap: 7px; background: #fff;
@@ -622,6 +642,8 @@ body.harness-ativa .harness { justify-content: flex-start; padding-top: 24px; }
 .msg-user { align-self: flex-end; background: linear-gradient(140deg, var(--red-bright), var(--red)); color: #fff; border-bottom-right-radius: 5px; }
 .msg-bot { align-self: flex-start; background: #fff; color: var(--ink); border: 1px solid var(--line); border-bottom-left-radius: 5px; }
 body.harness-ativa .harness-titulo,
+body.harness-ativa .harness-subtitulo,
+body.harness-ativa .harness-contexto,
 body.harness-ativa .harness-chips,
 body.harness-ativa .harness-aviso,
 body.harness-ativa .harness-glow { display: none; }

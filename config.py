@@ -26,6 +26,8 @@ TEMPLATE_PATH = os.path.join(BASE_DIR, "template", "TEMPLATE_STEWART.pptx")
 
 MAX_IMG_SIDE = 2000          # redimensiona fotos para no máx. 2000px (lado maior)
 JPEG_QUALITY = 85
+ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "HEIF", "HEIC"}
+MAX_IMAGE_PIXELS = int(os.environ.get("MAX_IMAGE_PIXELS", "50000000"))
 SENHA_MIN = 8                # tamanho mínimo de senha
 
 MESES = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO",

@@ -18,8 +18,9 @@ from flask_wtf.csrf import CSRFError
 from sqlalchemy import inspect, text
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from config import (DB_PATH, IS_PRODUCTION, database_url)
+from config import (DB_PATH, IS_PRODUCTION, SENHA_MIN, database_url)
 from extensions import csrf, db, limiter, login_manager
+from utils import destino_seguro
 
 # Suporte opcional a fotos HEIC/HEIF (iPhone), se a lib estiver disponível.
 try:
@@ -126,7 +127,8 @@ def _registrar_seguranca(app):
             return render_template(
                 "login.html",
                 erro="Sua sessão expirou. Tente entrar de novo."), 400
-        return redirect(request.referrer or url_for("main.dashboard"))
+        destino = destino_seguro(request.referrer)
+        return redirect(destino or url_for("main.dashboard"))
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +161,16 @@ def _criar_admin_inicial(Usuario, Obra):
     """Cria o primeiro admin se não houver usuários e adota as obras órfãs."""
     if Usuario.query.count() == 0:
         email = os.environ.get("ADMIN_EMAIL", "admin@stewart.local").strip().lower()
-        senha = os.environ.get("ADMIN_SENHA", "admin")
+        senha = os.environ.get("ADMIN_SENHA", "").strip()
+        if not senha:
+            if IS_PRODUCTION:
+                raise RuntimeError(
+                    "ADMIN_SENHA nao definida. Defina uma senha inicial forte "
+                    "antes de publicar.")
+            senha = "admin"
+        if IS_PRODUCTION and len(senha) < SENHA_MIN:
+            raise RuntimeError(
+                f"ADMIN_SENHA deve ter pelo menos {SENHA_MIN} caracteres.")
         admin = Usuario(email=email, nome="Administrador", is_admin=True,
                         criado_em=datetime.now().isoformat())
         admin.definir_senha(senha)
@@ -187,4 +198,5 @@ from models import Comodo, Foto, Obra, Usuario  # noqa: E402,F401
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    debug = os.environ.get("FLASK_DEBUG") == "1" and not IS_PRODUCTION
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=debug)
