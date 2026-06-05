@@ -6,7 +6,7 @@ ferramenta nova pode adicionar seus próprios modelos importando `db` daqui.
 
 from datetime import datetime
 
-from flask import abort
+from flask import abort, has_request_context, request
 from flask_login import UserMixin, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -73,6 +73,42 @@ class Foto(db.Model):
     descricao = db.Column(db.Text, default="")
     ordem = db.Column(db.Integer, nullable=False, default=0)
     criado_em = db.Column(db.String(40), nullable=False)
+
+
+class Atividade(db.Model):
+    """Registro de auditoria: quem fez o quê e quando (histórico de ações)."""
+    __tablename__ = "atividades"
+    id = db.Column(db.Integer, primary_key=True)
+    # Guardamos o id E o e-mail (desnormalizado) para o histórico sobreviver
+    # mesmo se o usuário for excluído depois.
+    usuario_id = db.Column(db.Integer, index=True)
+    usuario_email = db.Column(db.String(255))
+    acao = db.Column(db.String(60), nullable=False, index=True)
+    descricao = db.Column(db.String(500), default="")
+    obra_id = db.Column(db.Integer, index=True)
+    ip = db.Column(db.String(60))
+    criado_em = db.Column(db.String(40), nullable=False, index=True)
+
+
+def registrar_atividade(acao, descricao="", obra_id=None, email=None):
+    """Grava uma linha no histórico de atividades. Nunca quebra a ação
+    principal: se algo falhar aqui, apenas ignora."""
+    try:
+        autenticado = current_user.is_authenticated
+        ip = None
+        if has_request_context():
+            ip = request.headers.get("X-Forwarded-For", request.remote_addr) or ""
+            ip = ip.split(",")[0].strip() or None
+        log = Atividade(
+            usuario_id=current_user.id if autenticado else None,
+            usuario_email=email or (current_user.email if autenticado else None),
+            acao=acao, descricao=descricao, obra_id=obra_id, ip=ip,
+            criado_em=datetime.now().isoformat(),
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 @login_manager.user_loader

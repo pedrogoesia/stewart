@@ -50,6 +50,8 @@
     <div class="sb-sec">Administração</div>
     <a class="sb-item {% if request.path == url_for('auth.admin_usuarios') %}ativo{% endif %}"
        href="{{ url_for('auth.admin_usuarios') }}">{{ icone('id') }} Usuários</a>
+    <a class="sb-item {% if request.path == url_for('auth.admin_atividades') %}ativo{% endif %}"
+       href="{{ url_for('auth.admin_atividades') }}">{{ icone('doc') }} Atividades</a>
     <a class="sb-item {% if request.path == url_for('main.empresa') %}ativo{% endif %}"
        href="{{ url_for('main.empresa') }}">{{ icone('building') }} Empresa</a>
     {% endif %}

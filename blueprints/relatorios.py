@@ -18,7 +18,7 @@ from ai_edit import editar_imagem, ia_disponivel
 from config import DATA_DIR, MESES, TEMPLATE_PATH, UPLOAD_DIR
 from extensions import db, limiter
 from models import (Comodo, Foto, Obra, comodo_do_usuario, foto_do_usuario,
-                    obra_do_usuario)
+                    obra_do_usuario, registrar_atividade)
 from pptx_generator import gerar_relatorio
 from utils import (comodos_com_fotos, foto_abs_path, periodo_label,
                    preview_rel, processar_imagem, remover_arquivos_da_obra,
@@ -84,6 +84,7 @@ def criar_obra():
                 criado_em=datetime.now().isoformat())
     db.session.add(obra)
     db.session.commit()
+    registrar_atividade("obra_criada", f"Criou a obra '{nome}'", obra_id=obra.id)
     return redirect(url_for("relatorios.index"))
 
 
@@ -101,9 +102,12 @@ def editar_obra(obra_id):
 @login_required
 def excluir_obra(obra_id):
     obra = obra_do_usuario(obra_id)
+    nome_obra = obra.nome
     remover_arquivos_da_obra(obra)
     db.session.delete(obra)
     db.session.commit()
+    registrar_atividade("obra_excluida", f"Excluiu a obra '{nome_obra}'",
+                        obra_id=obra_id)
     return redirect(url_for("relatorios.index"))
 
 
@@ -121,6 +125,9 @@ def criar_comodo(obra_id):
     comodo = Comodo(obra_id=obra.id, nome=nome, ordem=ordem)
     db.session.add(comodo)
     db.session.commit()
+    registrar_atividade("comodo_criado",
+                        f"Adicionou o cômodo '{nome}' em '{obra.nome}'",
+                        obra_id=obra.id)
     return jsonify({"id": comodo.id, "nome": nome})
 
 
@@ -195,6 +202,9 @@ def upload_foto(comodo_id):
                 ordem=ordem, criado_em=datetime.now().isoformat())
     db.session.add(foto)
     db.session.commit()
+    registrar_atividade("foto_enviada",
+                        f"Enviou foto no cômodo '{comodo.nome}'",
+                        obra_id=comodo.obra_id)
     return jsonify({
         "id": foto.id,
         "url": url_for("relatorios.servir_foto", filename=rel_path),
@@ -296,6 +306,8 @@ def aplicar_edicao_ia(foto_id):
         return jsonify({"erro": "Nenhuma prévia para aplicar."}), 400
     # Substitui o arquivo original pela versão editada (mantém o mesmo nome).
     os.replace(preview_abs, _foto_path_or_404(foto.arquivo))
+    registrar_atividade("foto_ia", "Aplicou edição por IA em uma foto",
+                        obra_id=foto.comodo.obra_id)
     return jsonify({
         "ok": True,
         "url": url_for("relatorios.servir_foto", filename=foto.arquivo),
@@ -350,6 +362,9 @@ def baixar_relatorio(obra_id):
             pass
     out.seek(0)
 
+    registrar_atividade("relatorio_gerado",
+                        f"Gerou o relatório da obra '{obra.nome}' ({label})",
+                        obra_id=obra.id)
     nome_arq = f"Relatorio_{slugify(obra.nome)}_{slugify(label)}.pptx"
     return send_file(
         out, as_attachment=True, download_name=nome_arq,

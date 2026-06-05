@@ -85,6 +85,17 @@ h2 { font-size: 1.2rem; }
 .btn-icon { padding: 6px 10px; font-weight: 700; line-height: 1; }
 .comodo-mover { display: inline-flex; gap: 4px; }
 
+/* Tabela de atividades */
+.ativ-quando { white-space: nowrap; color: var(--muted); font-size: .82rem; }
+.ativ-ip { color: var(--muted); font-size: .8rem; }
+.ativ-tag {
+  display: inline-block; font-size: .72rem; font-weight: 700; padding: 2px 9px;
+  border-radius: 20px; background: #f0f1f3; color: var(--muted); text-transform: capitalize;
+}
+.ativ-login, .ativ-obra_criada, .ativ-comodo_criado, .ativ-foto_enviada,
+.ativ-relatorio_gerado, .ativ-usuario_criado { background: #e6f4ec; color: #1f7a4d; }
+.ativ-login_falhou, .ativ-obra_excluida, .ativ-usuario_excluido { background: #fdecea; color: var(--red); }
+
 /* ----------------------------------------------------------- Cards (obras) */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 .card {

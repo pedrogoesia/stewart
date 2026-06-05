@@ -9,7 +9,7 @@ from flask_login import (current_user, login_required, login_user,
 
 from config import SENHA_MIN
 from extensions import db, limiter
-from models import Usuario, senha_fraca
+from models import Usuario, registrar_atividade, senha_fraca
 from utils import destino_seguro, remover_arquivos_da_obra
 
 bp = Blueprint("auth", __name__)
@@ -27,9 +27,12 @@ def login():
         if usuario and usuario.conferir_senha(senha):
             session.permanent = True
             login_user(usuario)
+            registrar_atividade("login", "Entrou no sistema")
             destino = destino_seguro(request.args.get("next"))
             return redirect(destino or url_for("main.dashboard"))
         # Mensagem genérica: não revela se o email existe (evita enumeração).
+        registrar_atividade("login_falhou", f"Tentativa de login: {email}",
+                            email=email)
         return render_template("login.html", erro="Email ou senha inválidos.")
     return render_template("login.html")
 
@@ -37,6 +40,7 @@ def login():
 @bp.route("/logout")
 @login_required
 def logout():
+    registrar_atividade("logout", "Saiu do sistema")
     logout_user()
     return redirect(url_for("auth.login"))
 
@@ -66,6 +70,7 @@ def conta():
                                        erro=f"A nova senha deve ter pelo menos {SENHA_MIN} caracteres.")
             current_user.definir_senha(nova_senha)
         db.session.commit()
+        registrar_atividade("conta_atualizada", "Atualizou os dados da conta")
         return render_template("conta.html", ok=True)
     return render_template("conta.html")
 
@@ -84,6 +89,26 @@ def admin_usuarios():
     _exige_admin()
     usuarios = Usuario.query.order_by(Usuario.id).all()
     return render_template("admin_usuarios.html", usuarios=usuarios)
+
+
+@bp.route("/admin/atividades")
+@login_required
+def admin_atividades():
+    _exige_admin()
+    from datetime import datetime as _dt
+    from models import Atividade
+    registros = (Atividade.query.order_by(Atividade.id.desc()).limit(300).all())
+    itens = []
+    for a in registros:
+        try:
+            quando = _dt.fromisoformat(a.criado_em).strftime("%d/%m/%Y %H:%M")
+        except (ValueError, TypeError):
+            quando = a.criado_em
+        itens.append({
+            "quando": quando, "email": a.usuario_email or "—",
+            "acao": a.acao, "descricao": a.descricao or "", "ip": a.ip or "—",
+        })
+    return render_template("admin_atividades.html", itens=itens)
 
 
 @bp.route("/admin/usuarios/criar", methods=["POST"])
@@ -105,6 +130,7 @@ def admin_criar_usuario():
     usuario.definir_senha(senha)
     db.session.add(usuario)
     db.session.commit()
+    registrar_atividade("usuario_criado", f"Criou o usuário {email}")
     return _admin_msg(f"Usuário {email} criado.")
 
 
@@ -118,6 +144,7 @@ def admin_redefinir_senha(user_id):
         return _admin_msg(f"A nova senha deve ter pelo menos {SENHA_MIN} caracteres.", erro=True)
     usuario.definir_senha(nova)
     db.session.commit()
+    registrar_atividade("senha_redefinida", f"Redefiniu a senha de {usuario.email}")
     return _admin_msg(f"Senha de {usuario.email} redefinida.")
 
 
@@ -128,11 +155,13 @@ def admin_excluir_usuario(user_id):
     if user_id == current_user.id:
         return _admin_msg("Você não pode excluir a própria conta.", erro=True)
     usuario = db.session.get(Usuario, user_id) or abort(404)
+    email_excluido = usuario.email
     for obra in usuario.obras:
         remover_arquivos_da_obra(obra)
     db.session.delete(usuario)
     db.session.commit()
-    return _admin_msg(f"Usuário {usuario.email} excluído.")
+    registrar_atividade("usuario_excluido", f"Excluiu o usuário {email_excluido}")
+    return _admin_msg(f"Usuário {email_excluido} excluído.")
 
 
 def _admin_msg(msg, erro=False):
