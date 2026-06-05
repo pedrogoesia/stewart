@@ -1,9 +1,12 @@
 # Configuração de deploy no Render (Blueprint).
-# No Render: New → Blueprint → conecte este repositório. Ele cria tudo sozinho:
-# o site (web), o banco PostgreSQL e o disco para as fotos.
+# No Render: New → Blueprint → conecte este repositório. Ele cria o site (web)
+# e o disco das fotos. O banco PostgreSQL é externo (Neon, grátis): você cola o
+# endereço dele na variável DATABASE_URL no painel.
 #
-# Depois de criado, defina no painel os segredos marcados com "sync: false"
-# (ADMIN_SENHA e, se for usar IA, OPENAI_API_KEY).
+# Segredos a definir no painel (marcados com "sync: false"):
+#   - DATABASE_URL  → connection string do banco do Neon (neon.tech)
+#   - ADMIN_SENHA   → senha do primeiro administrador (mín. 8 caracteres)
+#   - OPENAI_API_KEY→ opcional (edição de fotos por IA)
 
 services:
   - type: web
@@ -17,8 +20,8 @@ services:
     healthCheckPath: /login
     disk:
       name: stewart-data
-      mountPath: /var/data   # as fotos e dados ficam aqui (persistente)
-      sizeGB: 5
+      mountPath: /var/data   # as fotos ficam aqui (persistente)
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
@@ -33,10 +36,4 @@ services:
       - key: OPENAI_API_KEY
         sync: false           # opcional (edição de fotos por IA)
       - key: DATABASE_URL
-        fromDatabase:
-          name: stewart-db
-          property: connectionString
-
-databases:
-  - name: stewart-db
-    plan: basic-256mb         # banco PostgreSQL gerenciado
+        sync: false           # cole aqui o endereço do banco do Neon
