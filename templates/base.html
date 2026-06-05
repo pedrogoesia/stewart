@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#A3212B">
   <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}Plataforma Stewart{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
 {% from "_icones.html" import icone %}
 <body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">

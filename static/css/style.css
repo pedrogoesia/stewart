@@ -24,6 +24,13 @@ body {
   color: var(--ink);
   background: var(--bg);
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;   /* sem flash cinza no toque */
+}
+
+/* Toque imediato no celular (remove o atraso de ~300ms ao tocar) */
+a, button, .btn, label.dropzone, .sb-item, .harness-chip,
+.foto-del, .foto-ia, [onclick] {
+  touch-action: manipulation;
 }
 
 /* ----------------------------------------------------------- Topbar */

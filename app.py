@@ -38,6 +38,10 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB por upload
+    # Cache longo para arquivos estáticos (CSS/JS/imagens). As URLs de CSS/JS
+    # levam ?v=<mtime> (ver context processor 'asset'), então atualizações
+    # aparecem na hora, mas o navegador não rebaixa tudo a cada navegação.
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 31536000  # 1 ano
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url()
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
     app.config["RATELIMIT_STORAGE_URI"] = os.environ.get(
@@ -87,6 +91,18 @@ def create_app():
     @app.context_processor
     def injetar_navegacao():
         return {"NAV_FERRAMENTAS": FERRAMENTAS}
+
+    @app.context_processor
+    def injetar_assets():
+        # URL de estático com "?v=<mtime>" para cache-busting automático.
+        def asset(filename):
+            try:
+                mtime = int(os.path.getmtime(
+                    os.path.join(app.static_folder, filename)))
+            except OSError:
+                mtime = 0
+            return url_for("static", filename=filename, v=mtime)
+        return {"asset": asset}
 
     _registrar_seguranca(app)
     return app
@@ -199,4 +215,7 @@ from models import Comodo, Foto, Obra, Usuario  # noqa: E402,F401
 if __name__ == "__main__":
     init_db()
     debug = os.environ.get("FLASK_DEBUG") == "1" and not IS_PRODUCTION
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=debug)
+    # threaded=True: atende vários pedidos ao mesmo tempo (ex.: carregar várias
+    # fotos enquanto você clica em botões) — evita a sensação de travamento.
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)),
+            debug=debug, threaded=True)

@@ -260,7 +260,9 @@ def servir_foto(filename):
         abort(404)
     obra_do_usuario(obra_id)   # aborta 404 se não for o dono
     _foto_path_or_404(filename)
-    return send_from_directory(UPLOAD_DIR, filename)
+    # Cache de 1h no navegador: revisitar a obra carrega as fotos do cache
+    # (rápido no celular). Edições por IA já fazem cache-bust na hora.
+    return send_from_directory(UPLOAD_DIR, filename, max_age=3600)
 
 
 # ---------------------------------------------------------------------------

@@ -157,5 +157,5 @@
   window.OBRA_ID = {{ obra.id }};
   window.IA_ATIVA = {{ 'true' if ia_ativa else 'false' }};
 </script>
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ asset('js/app.js') }}"></script>
 {% endblock %}
