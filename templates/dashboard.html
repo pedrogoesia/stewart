@@ -7,14 +7,28 @@
   <div class="harness-glow"></div>
 
   <div class="harness-hero">
-    <h1 class="harness-titulo"><span id="saud">Olá</span>{% if current_user.nome %}, {{ current_user.nome.split(' ')[0] }}{% endif %}.
-      <span class="harness-grad">No que você quer trabalhar hoje?</span></h1>
+    <h1 class="harness-titulo"><span id="saud">Bom dia</span>{% if current_user.nome %}, {{ current_user.nome.split(' ')[0] }}{% endif %}.
+      <span class="harness-grad">A inteligência operacional da Stewart.</span></h1>
+
+    <p class="harness-subtitulo">
+      Consulte dados da companhia, acione agentes de IA e execute rotinas em um
+      só lugar. A Stewart OS transforma o contexto da operação em respostas,
+      ações e decisões com mais clareza.
+    </p>
 
     <form class="harness-form" id="harnessForm" autocomplete="off">
       <textarea id="harnessInput" class="harness-input" rows="1"
-                placeholder="Pergunte, peça um relatório, dispare um agente…"></textarea>
+                placeholder="Pergunte sobre a operação, peça uma análise ou acione um agente de IA..."></textarea>
       <button type="submit" class="harness-send" title="Enviar">{{ icone('send') }}</button>
     </form>
+
+    <div class="harness-contexto" aria-label="O que o Stewart OS conecta">
+      <span>{{ icone('building') }} Dados conectados</span>
+      <span>{{ icone('camera') }} Obras em contexto</span>
+      <span>{{ icone('doc') }} Documentos consultáveis</span>
+      <span>{{ icone('flow') }} Agentes operacionais</span>
+      <span>{{ icone('id') }} Decisões assistidas</span>
+    </div>
 
     <div class="harness-chips">
       <a class="harness-chip" href="{{ url_for('relatorios.index') }}">{{ icone('camera') }} Relatório de obra</a>
@@ -24,8 +38,8 @@
       {% endif %}
     </div>
 
-    <p class="harness-aviso muted">O assistente está em construção. Os atalhos
-      acima já levam às ferramentas.</p>
+    <p class="harness-aviso muted">Contexto conectado. Agentes em ação. Decisões
+      com mais precisão.</p>
   </div>
 
   <div class="harness-conversa" id="conversa"></div>
