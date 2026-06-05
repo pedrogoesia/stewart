@@ -609,7 +609,17 @@ body.has-sidebar .conteudo { margin-left: 260px; }
 .sb-brand { display: block; text-decoration: none; }
 .sb-logo-full { display: block; width: 100%; max-width: 100%; height: auto; }
 
-.sb-nav { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin-top: 12px; }
+.sb-nav {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin-top: 12px;
+  /* barra de rolagem fina e discreta (Firefox) */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, .18) transparent;
+}
+/* barra de rolagem fina e discreta (Chrome/Edge/Safari) */
+.sb-nav::-webkit-scrollbar { width: 6px; }
+.sb-nav::-webkit-scrollbar-track { background: transparent; }
+.sb-nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .16); border-radius: 6px; }
+.sb-nav:hover::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .28); }
 .sb-sec { font-size: .66rem; text-transform: uppercase; letter-spacing: .14em; color: rgba(255, 255, 255, .38); padding: 18px 10px 8px; font-weight: 600; }
 .sb-item {
   position: relative; display: flex; align-items: center; gap: 11px; padding: 9px 10px;
