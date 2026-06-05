@@ -42,6 +42,15 @@ FERRAMENTAS = [
         "endpoint": None,
         "ativo": False,
     },
+    {
+        "slug": "financeiro",
+        "nome": "Financeiro",
+        "descricao": "Controle financeiro da obra: contas a pagar e a receber e "
+                     "fluxo de caixa.",
+        "icone": "chart",
+        "endpoint": None,
+        "ativo": False,
+    },
 ]
 
 
