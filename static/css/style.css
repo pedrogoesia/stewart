@@ -82,6 +82,8 @@ h2 { font-size: 1.2rem; }
 .btn-ghost-danger { background: #fff; border-color: var(--line); color: var(--red); }
 .btn-ghost-danger:hover { background: #fdecec; }
 .btn-sm { padding: 6px 12px; font-size: .85rem; }
+.btn-icon { padding: 6px 10px; font-weight: 700; line-height: 1; }
+.comodo-mover { display: inline-flex; gap: 4px; }
 
 /* ----------------------------------------------------------- Cards (obras) */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }

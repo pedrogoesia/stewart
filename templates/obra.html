@@ -53,6 +53,10 @@
       <h2 class="comodo-nome" data-id="{{ c.id }}">{{ c.nome }}</h2>
       <div class="comodo-tools">
         <span class="badge foto-count">{{ grupo.fotos|length }} foto(s)</span>
+        <span class="comodo-mover">
+          <button class="btn btn-sm btn-ghost btn-icon" title="Mover para cima" onclick="moverComodo({{ c.id }}, -1)">↑</button>
+          <button class="btn btn-sm btn-ghost btn-icon" title="Mover para baixo" onclick="moverComodo({{ c.id }}, 1)">↓</button>
+        </span>
         <button class="btn btn-sm btn-ghost" onclick="renomearComodo({{ c.id }})">Renomear</button>
         <button class="btn btn-sm btn-ghost-danger" onclick="excluirComodo({{ c.id }})">Excluir</button>
       </div>

@@ -44,6 +44,10 @@ function comodoTemplate(id, nome) {
       <h2 class="comodo-nome" data-id="${id}">${escapeHtml(nome)}</h2>
       <div class="comodo-tools">
         <span class="badge foto-count">0 foto(s)</span>
+        <span class="comodo-mover">
+          <button class="btn btn-sm btn-ghost btn-icon" title="Mover para cima" onclick="moverComodo(${id}, -1)">↑</button>
+          <button class="btn btn-sm btn-ghost btn-icon" title="Mover para baixo" onclick="moverComodo(${id}, 1)">↓</button>
+        </span>
         <button class="btn btn-sm btn-ghost" onclick="renomearComodo(${id})">Renomear</button>
         <button class="btn btn-sm btn-ghost-danger" onclick="excluirComodo(${id})">Excluir</button>
       </div>
@@ -72,6 +76,29 @@ async function excluirComodo(id) {
   if (!confirm("Excluir este cômodo e todas as suas fotos?")) return;
   const resp = await postForm(`/comodo/${id}/excluir`, {});
   if (resp.ok) document.querySelector(`[data-comodo-id="${id}"]`).remove();
+}
+
+// Move um cômodo para cima (-1) ou para baixo (1) e salva a nova ordem.
+async function moverComodo(id, dir) {
+  const sec = document.querySelector(`.comodo[data-comodo-id="${id}"]`);
+  if (!sec) return;
+  if (dir < 0) {
+    const prev = sec.previousElementSibling;
+    if (!prev || !prev.classList.contains("comodo")) return;  // já é o primeiro
+    sec.parentNode.insertBefore(sec, prev);
+  } else {
+    const next = sec.nextElementSibling;
+    if (!next || !next.classList.contains("comodo")) return;   // já é o último
+    sec.parentNode.insertBefore(next, sec);
+  }
+  sec.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  await salvarOrdemComodos();
+}
+
+async function salvarOrdemComodos() {
+  const ids = [...document.querySelectorAll("#comodos .comodo[data-comodo-id]")]
+    .map((s) => s.dataset.comodoId);
+  await postForm(`/obra/${window.OBRA_ID}/comodos/reordenar`, { ordem: ids.join(",") });
 }
 
 // ------------------------------------------------------------------ Fotos

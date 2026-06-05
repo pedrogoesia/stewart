@@ -124,6 +124,21 @@ def criar_comodo(obra_id):
     return jsonify({"id": comodo.id, "nome": nome})
 
 
+@bp.route("/obra/<int:obra_id>/comodos/reordenar", methods=["POST"])
+@login_required
+def reordenar_comodos(obra_id):
+    """Atualiza a ordem dos cômodos da obra (a ordem que vale no PowerPoint)."""
+    obra = obra_do_usuario(obra_id)
+    ids = request.form.get("ordem", "")
+    id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    comodos = {c.id: c for c in obra.comodos}
+    for posicao, comodo_id in enumerate(id_list):
+        if comodo_id in comodos:
+            comodos[comodo_id].ordem = posicao
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
 @bp.route("/comodo/<int:comodo_id>/renomear", methods=["POST"])
 @login_required
 def renomear_comodo(comodo_id):
