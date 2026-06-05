@@ -433,7 +433,67 @@ body.arrastando { cursor: grabbing; user-select: none; }
 .proc-tag-ativa { background: var(--red); color: #fff; }
 .proc-tag-ativa:hover { background: var(--red-dark); }
 
-/* ----------------------------------------------------------- Workflows (board) */
+/* ----------------------------------------------------------- Workflows (pipelines) */
+.wf-pill {
+  display: inline-block; font-size: .64rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; padding: 3px 9px; border-radius: 20px;
+}
+.wf-pill-manual { background: #eceae6; color: #6b7280; }
+.wf-pill-validacao { background: #fcebe8; color: var(--red); }
+.wf-pill-automacao { background: #e6f4ec; color: #1f7a4d; }
+
+.wf-legenda {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: .82rem;
+  color: var(--muted); background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 16px; margin-bottom: 24px; box-shadow: var(--shadow);
+}
+.wf-sep { color: #c9c4bc; }
+
+.wf-flow { margin-bottom: 28px; }
+.wf-flow-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.wf-flow-ico {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--sidebar); color: #fff;
+}
+.wf-flow-ico svg { width: 22px; height: 22px; }
+.wf-flow-head h2 { margin: 0; font-size: 1.15rem; }
+.wf-flow-head p { margin: 0; }
+
+.wf-pipeline { display: flex; align-items: stretch; overflow-x: auto; padding: 4px 2px 14px; }
+.wf-step {
+  flex: 1 0 220px; min-width: 220px; background: var(--card); border: 1px solid var(--line);
+  border-top: 3px solid #cfcbc4; border-radius: 14px; box-shadow: var(--shadow);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+}
+.wf-step.wf-validacao { border-top-color: var(--red); }
+.wf-step.wf-automacao { border-top-color: #1f7a4d; }
+.wf-step-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wf-num {
+  width: 22px; height: 22px; border-radius: 50%; background: #f0efec; color: var(--muted);
+  font-size: .72rem; font-weight: 700; display: grid; place-items: center; flex: 0 0 auto;
+}
+.wf-step h3 { margin: 2px 0 0; font-size: .96rem; }
+.wf-desc { margin: 0; font-size: .8rem; color: var(--muted); line-height: 1.4; flex: 1; }
+
+.wf-prog { margin-top: 6px; }
+.wf-prog-bar { height: 6px; background: #f0efec; border-radius: 6px; overflow: hidden; }
+.wf-prog-bar span { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--red), var(--red-bright)); }
+.wf-prog-txt { font-size: .7rem; color: var(--muted); margin-top: 4px; display: inline-block; }
+
+.wf-link { margin-top: 6px; font-size: .8rem; font-weight: 600; color: var(--red); text-decoration: none; }
+.wf-link:hover { text-decoration: underline; }
+.wf-ferr-breve { margin-top: 6px; font-size: .72rem; color: var(--muted); }
+
+.wf-conn { flex: 0 0 auto; display: flex; align-items: center; color: #cfc9c1; padding: 0 4px; }
+.wf-conn svg { width: 20px; height: 20px; }
+
+@media (max-width: 780px) {
+  .wf-pipeline { flex-direction: column; }
+  .wf-step { min-width: 0; }
+  .wf-conn { transform: rotate(90deg); padding: 4px 0; align-self: center; }
+}
+
+/* ----------------------------------------------------------- Workflows (board antigo) */
 .workflow-board {
   position: relative; border: 1.5px solid #d4d7dd; border-radius: 16px;
   background-color: #fff;

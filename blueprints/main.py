@@ -3,7 +3,7 @@
 from flask import Blueprint, abort, redirect, render_template, url_for
 from flask_login import current_user, login_required
 
-from plataforma import EMPRESA, FERRAMENTAS, PROCESSOS, ferramenta_por_slug
+from plataforma import EMPRESA, FERRAMENTAS, WORKFLOWS, ferramenta_por_slug
 
 bp = Blueprint("main", __name__)
 
@@ -30,9 +30,16 @@ def ferramenta(slug):
 @bp.route("/workflows")
 @login_required
 def workflows():
-    """Quadro (board) com os fluxos/processos da construtora."""
-    return render_template("workflows.html", processos=PROCESSOS,
-                           ferramentas=FERRAMENTAS)
+    """Fluxos operacional e financeiro da construtora, com o status de cada
+    etapa (manual → em validação → automação)."""
+    flows = []
+    for wf in WORKFLOWS:
+        etapas = []
+        for e in wf["etapas"]:
+            ferr = ferramenta_por_slug(e["ferramenta"]) if e.get("ferramenta") else None
+            etapas.append({**e, "ferr": ferr})
+        flows.append({**wf, "etapas": etapas})
+    return render_template("workflows.html", flows=flows)
 
 
 @bp.route("/empresa")

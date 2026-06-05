@@ -62,6 +62,60 @@ def ferramenta_por_slug(slug):
 
 
 # ---------------------------------------------------------------------------
+# Workflows da construtora (fluxos operacional e financeiro).
+#
+# Cada etapa do fluxo tem um status que reflete a jornada de validação:
+#   - "manual"     → ainda feito na mão (a mapear/automatizar);
+#   - "validacao"  → já existe uma ferramenta em teste, reduzindo a margem de
+#                    erro ("validacao_pct" = % de confiança já atingido);
+#   - "automacao"  → validada (100%), virou automação dentro do fluxo.
+#
+# Quando uma etapa em validação chega a 100%, é só mudar o status para
+# "automacao". Estrutura totalmente editável — vá ajustando ao mapear o negócio.
+# ---------------------------------------------------------------------------
+WORKFLOWS = [
+    {
+        "nome": "Fluxo Operacional",
+        "descricao": "Do planejamento à entrega da obra.",
+        "icone": "flow",
+        "etapas": [
+            {"nome": "Planejamento da obra", "status": "manual",
+             "descricao": "Escopo, cronograma e definição dos serviços."},
+            {"nome": "Compras e suprimentos", "status": "manual",
+             "descricao": "Cotação, pedidos e recebimento de materiais."},
+            {"nome": "Acompanhamento fotográfico", "status": "validacao",
+             "validacao_pct": 75, "ferramenta": "relatorios",
+             "descricao": "Relatório mensal por cômodo em PowerPoint."},
+            {"nome": "Diário de obra", "status": "manual",
+             "descricao": "Registro diário de avanço, equipe e ocorrências."},
+            {"nome": "Vistoria e entrega", "status": "manual",
+             "descricao": "Checklist final, vistoria e entrega das chaves."},
+        ],
+    },
+    {
+        "nome": "Fluxo Financeiro",
+        "descricao": "Do orçamento ao fechamento financeiro.",
+        "icone": "chart",
+        "etapas": [
+            {"nome": "Orçamento da obra", "status": "validacao",
+             "validacao_pct": 20, "ferramenta": "orcamentos",
+             "descricao": "Composição de custos e proposta ao cliente."},
+            {"nome": "Notas fiscais", "status": "validacao",
+             "validacao_pct": 15, "ferramenta": "notas-fiscais",
+             "descricao": "Entrada e organização das NFs de materiais/serviços."},
+            {"nome": "Contas a pagar e receber", "status": "validacao",
+             "validacao_pct": 10, "ferramenta": "financeiro",
+             "descricao": "Lançamentos, vencimentos e baixas."},
+            {"nome": "Fluxo de caixa", "status": "manual",
+             "descricao": "Posição diária de entradas e saídas."},
+            {"nome": "Fechamento mensal", "status": "manual",
+             "descricao": "Conciliação e resultado do mês por obra."},
+        ],
+    },
+]
+
+
+# ---------------------------------------------------------------------------
 # Painel institucional da empresa ("harness" da Stewart Engenharia).
 # Por enquanto é só o front: estes valores são placeholders que depois serão
 # carregados do banco/back-end. Edite à vontade.
