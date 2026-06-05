@@ -1,0 +1,42 @@
+# Configuração de deploy no Render (Blueprint).
+# No Render: New → Blueprint → conecte este repositório. Ele cria tudo sozinho:
+# o site (web), o banco PostgreSQL e o disco para as fotos.
+#
+# Depois de criado, defina no painel os segredos marcados com "sync: false"
+# (ADMIN_SENHA e, se for usar IA, OPENAI_API_KEY).
+
+services:
+  - type: web
+    name: stewart-os
+    runtime: python
+    plan: starter            # necessário p/ ter disco persistente (fotos)
+    branch: claude/determined-thompson-IO3vD
+    buildCommand: pip install -r requirements.txt
+    # Cria/atualiza as tabelas e o admin, depois sobe o servidor de produção.
+    startCommand: python -c "import app; app.init_db()" && gunicorn --workers 2 --timeout 120 --bind 0.0.0.0:$PORT app:app
+    healthCheckPath: /login
+    disk:
+      name: stewart-data
+      mountPath: /var/data   # as fotos e dados ficam aqui (persistente)
+      sizeGB: 5
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DATA_DIR
+        value: /var/data
+      - key: SECRET_KEY
+        generateValue: true   # o Render gera uma chave forte automaticamente
+      - key: ADMIN_EMAIL
+        value: admin@stewart.local
+      - key: ADMIN_SENHA
+        sync: false           # defina no painel (sua senha de admin)
+      - key: OPENAI_API_KEY
+        sync: false           # opcional (edição de fotos por IA)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stewart-db
+          property: connectionString
+
+databases:
+  - name: stewart-db
+    plan: basic-256mb         # banco PostgreSQL gerenciado

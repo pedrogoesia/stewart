@@ -17,7 +17,9 @@ except Exception:
     pass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+# Pasta de dados (banco SQLite local e fotos). Em produção (ex.: Render) aponte
+# DATA_DIR para um disco persistente, senão as fotos se perdem a cada deploy.
+DATA_DIR = os.environ.get("DATA_DIR", "").strip() or os.path.join(BASE_DIR, "data")
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 DB_PATH = os.path.join(DATA_DIR, "stewart.db")
 TEMPLATE_PATH = os.path.join(BASE_DIR, "template", "TEMPLATE_STEWART.pptx")
