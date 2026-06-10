@@ -113,6 +113,10 @@ def ferramenta_por_slug(slug):
     return None
 
 
+# Lista de slugs na ordem do catálogo (usada nas permissões por usuário).
+SLUGS_FERRAMENTAS = [f["slug"] for f in FERRAMENTAS]
+
+
 # ---------------------------------------------------------------------------
 # Workflows da construtora (fluxos operacional e financeiro).
 #

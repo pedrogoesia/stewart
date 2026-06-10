@@ -764,3 +764,23 @@ body.harness-ativa .harness-glow { display: none; }
   body.sidebar-aberta .sb-overlay { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .42); z-index: 55; }
   .harness { min-height: calc(100vh - 150px); }
 }
+
+/* ----------------------------------------------------------- Permissões (soluções por usuário) */
+.perm-fieldset {
+  border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  margin: 16px 0; min-width: 0;
+}
+.perm-fieldset legend { font-size: .85rem; font-weight: 600; color: var(--muted); padding: 0 6px; }
+.perm-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 16px; margin-bottom: 8px;
+}
+.perm-item { display: flex; align-items: center; gap: 8px; font-size: .92rem; cursor: pointer; }
+.perm-item input { width: auto; margin: 0; flex: none; }
+.perm-nota { margin: 6px 0 0; font-size: .8rem; }
+
+.perm-user {
+  border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px;
+}
+.perm-user-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.perm-form .perm-grid { margin-bottom: 12px; }

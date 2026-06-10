@@ -27,6 +27,15 @@ from utils import (comodos_com_fotos, foto_abs_path, periodo_label,
 bp = Blueprint("relatorios", __name__)
 
 
+@bp.before_request
+def _exige_acesso():
+    """Exige login e que o usuário tenha a solução 'Relatórios' liberada."""
+    if not current_user.is_authenticated:
+        return redirect(url_for("auth.login", next=request.url))
+    if not current_user.pode_ver_ferramenta("relatorios"):
+        abort(403)
+
+
 def _foto_path_or_404(arquivo):
     try:
         return foto_abs_path(arquivo)

@@ -14,20 +14,34 @@
 <!-- Criar usuário -->
 <section class="panel">
   <h3>Criar novo usuário</h3>
-  <form method="post" action="{{ url_for('auth.admin_criar_usuario') }}" class="field-row">
+  <form method="post" action="{{ url_for('auth.admin_criar_usuario') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label>Nome
-      <input type="text" name="nome" placeholder="Nome da pessoa">
-    </label>
-    <label>Email
-      <input type="email" name="email" placeholder="email@exemplo.com" required>
-    </label>
-    <label>Senha inicial
-      <input type="text" name="senha" placeholder="senha provisória" required>
-    </label>
-    <label class="check-inline">
-      <input type="checkbox" name="is_admin"> Administrador
-    </label>
+    <div class="field-row">
+      <label>Nome
+        <input type="text" name="nome" placeholder="Nome da pessoa">
+      </label>
+      <label>Email
+        <input type="email" name="email" placeholder="email@exemplo.com" required>
+      </label>
+      <label>Senha inicial
+        <input type="text" name="senha" placeholder="senha provisória" required>
+      </label>
+      <label class="check-inline">
+        <input type="checkbox" name="is_admin"> Administrador
+      </label>
+    </div>
+    <fieldset class="perm-fieldset">
+      <legend>Soluções que este usuário poderá ver</legend>
+      <div class="perm-grid">
+        {% for f in ferramentas %}
+        <label class="perm-item">
+          <input type="checkbox" name="ferramentas" value="{{ f.slug }}" {% if f.ativo %}checked{% endif %}>
+          <span>{{ f.nome }}{% if not f.ativo %} <span class="muted">(em breve)</span>{% endif %}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="muted perm-nota">Administradores veem todas as soluções automaticamente.</p>
+    </fieldset>
     <button class="btn btn-primary" type="submit">+ Criar usuário</button>
   </form>
 </section>
@@ -68,5 +82,36 @@
       </tbody>
     </table>
   </div>
+</section>
+
+<!-- Soluções que cada usuário pode ver -->
+<section class="panel">
+  <h3>Soluções por usuário</h3>
+  <p class="muted">Marque quais soluções cada pessoa pode acessar e clique em salvar.</p>
+  {% for u in usuarios %}
+  <div class="perm-user">
+    <div class="perm-user-head">
+      <strong>{{ u.nome or u.email }}</strong>
+      <span class="muted">{{ u.email }}</span>
+    </div>
+    {% if u.is_admin %}
+    <span class="badge badge-admin">Administrador — vê todas as soluções</span>
+    {% else %}
+    <form method="post" action="{{ url_for('auth.admin_definir_ferramentas', user_id=u.id) }}" class="perm-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="perm-grid">
+        {% for f in ferramentas %}
+        <label class="perm-item">
+          <input type="checkbox" name="ferramentas" value="{{ f.slug }}"
+                 {% if f.slug in u.ferramentas_lista %}checked{% endif %}>
+          <span>{{ f.nome }}{% if not f.ativo %} <span class="muted">(em breve)</span>{% endif %}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <button class="btn btn-sm btn-primary" type="submit">Salvar soluções</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
 </section>
 {% endblock %}

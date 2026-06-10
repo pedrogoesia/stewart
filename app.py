@@ -86,11 +86,17 @@ def create_app():
     app.register_blueprint(relatorios_bp)
 
     # Disponibiliza a lista de ferramentas para a barra lateral (todos templates).
+    # Mostra só as soluções que o usuário logado pode ver (admin vê todas).
     from plataforma import FERRAMENTAS
 
     @app.context_processor
     def injetar_navegacao():
-        return {"NAV_FERRAMENTAS": FERRAMENTAS}
+        if current_user.is_authenticated:
+            visiveis = [f for f in FERRAMENTAS
+                        if current_user.pode_ver_ferramenta(f["slug"])]
+        else:
+            visiveis = []
+        return {"NAV_FERRAMENTAS": visiveis}
 
     @app.context_processor
     def injetar_assets():
@@ -155,7 +161,26 @@ def init_db():
     with app.app_context():
         db.create_all()
         _migrar_obras_antigas()
+        _migrar_ferramentas_usuarios()
         _criar_admin_inicial(Usuario, Obra)
+
+
+def _migrar_ferramentas_usuarios():
+    """Bancos antigos não têm a coluna 'ferramentas'. Cria a coluna e, para os
+    usuários já existentes, libera todas as soluções (mantém o comportamento)."""
+    from plataforma import SLUGS_FERRAMENTAS
+    insp = inspect(db.engine)
+    if not insp.has_table("usuarios"):
+        return
+    colunas = [c["name"] for c in insp.get_columns("usuarios")]
+    if "ferramentas" not in colunas:
+        db.session.execute(text(
+            "ALTER TABLE usuarios ADD COLUMN ferramentas VARCHAR(500) DEFAULT ''"))
+        db.session.execute(
+            text("UPDATE usuarios SET ferramentas = :t "
+                 "WHERE ferramentas IS NULL OR ferramentas = ''"),
+            {"t": ",".join(SLUGS_FERRAMENTAS)})
+        db.session.commit()
 
 
 def _migrar_obras_antigas():
@@ -187,7 +212,9 @@ def _criar_admin_inicial(Usuario, Obra):
         if IS_PRODUCTION and len(senha) < SENHA_MIN:
             raise RuntimeError(
                 f"ADMIN_SENHA deve ter pelo menos {SENHA_MIN} caracteres.")
+        from plataforma import SLUGS_FERRAMENTAS
         admin = Usuario(email=email, nome="Administrador", is_admin=True,
+                        ferramentas=",".join(SLUGS_FERRAMENTAS),
                         criado_em=datetime.now().isoformat())
         admin.definir_senha(senha)
         db.session.add(admin)

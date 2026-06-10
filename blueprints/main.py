@@ -11,8 +11,10 @@ bp = Blueprint("main", __name__)
 @bp.route("/")
 @login_required
 def dashboard():
-    """Vitrine das ferramentas da plataforma."""
-    return render_template("dashboard.html", ferramentas=FERRAMENTAS)
+    """Vitrine das ferramentas da plataforma (só as liberadas para o usuário)."""
+    visiveis = [f for f in FERRAMENTAS
+                if current_user.pode_ver_ferramenta(f["slug"])]
+    return render_template("dashboard.html", ferramentas=visiveis)
 
 
 @bp.route("/ferramenta/<slug>")
@@ -22,6 +24,8 @@ def ferramenta(slug):
     f = ferramenta_por_slug(slug)
     if f is None:
         abort(404)
+    if not current_user.pode_ver_ferramenta(slug):
+        abort(403)
     if f["ativo"] and f["endpoint"]:
         return redirect(url_for(f["endpoint"]))
     return render_template("ferramenta_em_breve.html", ferramenta=f)
