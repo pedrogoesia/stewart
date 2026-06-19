@@ -10,17 +10,29 @@ from flask_login import (current_user, login_required, login_user,
 from config import SENHA_MIN
 from extensions import db, limiter
 from models import Usuario, registrar_atividade, senha_fraca
-from plataforma import FERRAMENTAS
 from utils import destino_seguro, remover_arquivos_da_obra
 
 bp = Blueprint("auth", __name__)
+
+
+def _pagina_inicial():
+    """Para onde mandar o usuário após o login: admin → Usuários; demais → ferramenta."""
+    if current_user.is_admin:
+        return url_for("auth.admin_usuarios")
+    return url_for("relatorios.index")
+
+
+@bp.route("/")
+@login_required
+def home():
+    return redirect(_pagina_inicial())
 
 
 @bp.route("/login", methods=["GET", "POST"])
 @limiter.limit("10 per minute", methods=["POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("main.dashboard"))
+        return redirect(_pagina_inicial())
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         senha = request.form.get("senha") or ""
@@ -30,7 +42,7 @@ def login():
             login_user(usuario)
             registrar_atividade("login", "Entrou no sistema")
             destino = destino_seguro(request.args.get("next"))
-            return redirect(destino or url_for("main.dashboard"))
+            return redirect(destino or _pagina_inicial())
         # Mensagem genérica: não revela se o email existe (evita enumeração).
         registrar_atividade("login_falhou", f"Tentativa de login: {email}",
                             email=email)
@@ -89,8 +101,7 @@ def _exige_admin():
 def admin_usuarios():
     _exige_admin()
     usuarios = Usuario.query.order_by(Usuario.id).all()
-    return render_template("admin_usuarios.html", usuarios=usuarios,
-                           ferramentas=FERRAMENTAS)
+    return render_template("admin_usuarios.html", usuarios=usuarios)
 
 
 @bp.route("/admin/atividades")
@@ -130,23 +141,10 @@ def admin_criar_usuario():
     usuario = Usuario(email=email, nome=nome, is_admin=is_admin,
                       criado_em=datetime.now().isoformat())
     usuario.definir_senha(senha)
-    usuario.definir_ferramentas(request.form.getlist("ferramentas"))
     db.session.add(usuario)
     db.session.commit()
     registrar_atividade("usuario_criado", f"Criou o usuário {email}")
     return _admin_msg(f"Usuário {email} criado.")
-
-
-@bp.route("/admin/usuarios/<int:user_id>/ferramentas", methods=["POST"])
-@login_required
-def admin_definir_ferramentas(user_id):
-    _exige_admin()
-    usuario = db.session.get(Usuario, user_id) or abort(404)
-    usuario.definir_ferramentas(request.form.getlist("ferramentas"))
-    db.session.commit()
-    registrar_atividade("ferramentas_atualizadas",
-                        f"Atualizou as soluções de {usuario.email}")
-    return _admin_msg(f"Soluções de {usuario.email} atualizadas.")
 
 
 @bp.route("/admin/usuarios/<int:user_id>/senha", methods=["POST"])
@@ -183,4 +181,4 @@ def _admin_msg(msg, erro=False):
     usuarios = Usuario.query.order_by(Usuario.id).all()
     chave = "erro" if erro else "ok"
     return render_template("admin_usuarios.html", usuarios=usuarios,
-                           ferramentas=FERRAMENTAS, **{chave: msg})
+                           **{chave: msg})

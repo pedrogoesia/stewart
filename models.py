@@ -1,7 +1,7 @@
 """Modelos do banco (tabelas) e regras de acesso por usuário.
 
-As tabelas são compartilhadas por todas as ferramentas da plataforma. Cada
-ferramenta nova pode adicionar seus próprios modelos importando `db` daqui.
+Núcleo: Usuário (login/contas) e Atividade (auditoria). A ferramenta de
+Relatórios de Obras adiciona Obra → Cômodo → Foto.
 """
 
 from datetime import datetime
@@ -24,9 +24,6 @@ class Usuario(UserMixin, db.Model):
     nome = db.Column(db.String(255), default="")
     senha_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
-    # Soluções (ferramentas) que o usuário pode ver — lista de slugs separada
-    # por vírgula. Admin enxerga todas, independente deste campo.
-    ferramentas = db.Column(db.String(500), default="")
     criado_em = db.Column(db.String(40), nullable=False)
 
     obras = db.relationship("Obra", backref="usuario",
@@ -38,20 +35,9 @@ class Usuario(UserMixin, db.Model):
     def conferir_senha(self, senha):
         return check_password_hash(self.senha_hash, senha or "")
 
-    @property
-    def ferramentas_lista(self):
-        return [s for s in (self.ferramentas or "").split(",") if s]
-
     def pode_ver_ferramenta(self, slug):
-        """Admin vê tudo; usuário comum só as soluções liberadas."""
-        return self.is_admin or slug in self.ferramentas_lista
-
-    def definir_ferramentas(self, slugs):
-        """Guarda apenas slugs válidos, na ordem do catálogo."""
-        from plataforma import SLUGS_FERRAMENTAS
-        escolhidos = set(slugs or [])
-        validos = [s for s in SLUGS_FERRAMENTAS if s in escolhidos]
-        self.ferramentas = ",".join(validos)
+        """Toda pessoa logada pode usar as ferramentas disponíveis."""
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +79,9 @@ class Foto(db.Model):
     criado_em = db.Column(db.String(40), nullable=False)
 
 
+# ---------------------------------------------------------------------------
+# Auditoria: quem fez o quê e quando
+# ---------------------------------------------------------------------------
 class Atividade(db.Model):
     """Registro de auditoria: quem fez o quê e quando (histórico de ações)."""
     __tablename__ = "atividades"

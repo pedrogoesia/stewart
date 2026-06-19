@@ -23,28 +23,15 @@
 <!-- Barra lateral -->
 <aside class="sidebar">
   <div class="sb-top">
-    <a class="sb-brand" href="{{ url_for('main.dashboard') }}">
+    <a class="sb-brand" href="{{ url_for('auth.home') }}">
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Stewart Engenharia" class="sb-logo-full">
     </a>
   </div>
 
   <nav class="sb-nav">
-    <div class="sb-sec">Plataforma</div>
-    <a class="sb-item {% if request.path == url_for('main.dashboard') %}ativo{% endif %}"
-       href="{{ url_for('main.dashboard') }}">{{ icone('spark') }} Stewart OS</a>
-    <a class="sb-item {% if request.path == url_for('main.workflows') %}ativo{% endif %}"
-       href="{{ url_for('main.workflows') }}">{{ icone('flow') }} Workflows</a>
-
     <div class="sb-sec">Ferramentas</div>
-    {% for f in NAV_FERRAMENTAS %}
-      {% if f.ativo %}
-      <a class="sb-item {% if request.path == url_for(f.endpoint) %}ativo{% endif %}"
-         href="{{ url_for(f.endpoint) }}">{{ icone(f.icone) }} {{ f.nome }}</a>
-      {% else %}
-      <a class="sb-item sb-item-inativo" href="{{ url_for('main.ferramenta', slug=f.slug) }}">
-        {{ icone(f.icone) }} {{ f.nome }} <span class="sb-breve">em breve</span></a>
-      {% endif %}
-    {% endfor %}
+    <a class="sb-item {% if request.path == url_for('relatorios.index') %}ativo{% endif %}"
+       href="{{ url_for('relatorios.index') }}">{{ icone('camera') }} Relatório de Obras</a>
 
     {% if current_user.is_admin %}
     <div class="sb-sec">Administração</div>
@@ -52,8 +39,6 @@
        href="{{ url_for('auth.admin_usuarios') }}">{{ icone('id') }} Usuários</a>
     <a class="sb-item {% if request.path == url_for('auth.admin_atividades') %}ativo{% endif %}"
        href="{{ url_for('auth.admin_atividades') }}">{{ icone('doc') }} Atividades</a>
-    <a class="sb-item {% if request.path == url_for('main.empresa') %}ativo{% endif %}"
-       href="{{ url_for('main.empresa') }}">{{ icone('building') }} Empresa</a>
     {% endif %}
   </nav>
 
