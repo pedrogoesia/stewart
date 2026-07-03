@@ -147,6 +147,35 @@ def init_db():
     with app.app_context():
         db.create_all()
         _criar_admin_inicial(Usuario)
+        _resetar_admin_se_pedido(Usuario)
+
+
+def _resetar_admin_se_pedido(Usuario):
+    """Recupera o acesso do admin quando a senha foi esquecida.
+
+    Se a variável de ambiente ADMIN_RESET=1, redefine a senha do admin
+    (email = ADMIN_EMAIL) para o valor de ADMIN_SENHA no próximo deploy —
+    trocar só ADMIN_SENHA não basta, porque o admin já existe no banco.
+    Depois de recuperar o acesso, REMOVA a variável ADMIN_RESET no painel
+    (senão a senha volta a esse valor a cada deploy)."""
+    if os.environ.get("ADMIN_RESET", "").strip() != "1":
+        return
+    email = os.environ.get("ADMIN_EMAIL", "admin@stewart.local").strip().lower()
+    senha = os.environ.get("ADMIN_SENHA", "").strip()
+    if len(senha) < SENHA_MIN:
+        print(f"[ADMIN_RESET] Ignorado: defina ADMIN_SENHA com pelo menos "
+              f"{SENHA_MIN} caracteres.")
+        return
+    admin = Usuario.query.filter_by(email=email).first()
+    if admin is None:
+        admin = Usuario(email=email, nome="Administrador", is_admin=True,
+                        criado_em=datetime.now().isoformat())
+        db.session.add(admin)
+    admin.is_admin = True
+    admin.definir_senha(senha)
+    db.session.commit()
+    print(f"[ADMIN_RESET] Senha do admin {email} redefinida. "
+          "REMOVA a variável ADMIN_RESET agora e troque a senha em 'Minha conta'.")
 
 
 def _criar_admin_inicial(Usuario):
