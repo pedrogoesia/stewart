@@ -13,7 +13,7 @@ services:
     name: stewart-os
     runtime: python
     plan: starter            # necessário p/ ter disco persistente (fotos)
-    branch: claude/determined-thompson-IO3vD
+    branch: main
     buildCommand: pip install -r requirements.txt
     # Cria/atualiza as tabelas e o admin, depois sobe o servidor de produção.
     startCommand: python -c "import app; app.init_db()" && gunicorn --workers 2 --timeout 120 --bind 0.0.0.0:$PORT app:app

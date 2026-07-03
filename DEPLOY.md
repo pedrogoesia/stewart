@@ -6,12 +6,12 @@ o banco PostgreSQL e o disco das fotos automaticamente.
 ## Passo a passo
 
 1. **Garanta que o código está no GitHub** (este repositório, na branch
-   `claude/determined-thompson-IO3vD`).
+   `main`).
 
 2. Crie uma conta em **https://render.com** e clique em **New → Blueprint**.
 
 3. **Conecte este repositório** e selecione a branch
-   `claude/determined-thompson-IO3vD`. O Render vai ler o `render.yaml` e montar:
+   `main`. O Render vai ler o `render.yaml` e montar:
    - o site (`stewart-os`);
    - o banco PostgreSQL (`stewart-db`);
    - o disco das fotos (5 GB, em `/var/data`).
