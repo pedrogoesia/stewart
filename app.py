@@ -79,8 +79,10 @@ def create_app():
     # Registra os módulos: núcleo (auth/admin) + ferramentas.
     from blueprints.auth import bp as auth_bp
     from blueprints.relatorios import bp as relatorios_bp
+    from blueprints.atas import bp as atas_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(relatorios_bp)
+    app.register_blueprint(atas_bp)
 
     @app.context_processor
     def injetar_assets():
