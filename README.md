@@ -8,6 +8,10 @@ permite **baixar todas as fotos em um `.zip` com uma pasta por cômodo**.
 
 ## Funcionalidades
 
+- 🔐 **Login por usuário** — cada pessoa entra com email e senha e vê **apenas
+  as próprias obras**. O administrador cria os usuários; cada um pode alterar o
+  próprio nome, email e senha em "Minha conta". As senhas são guardadas com
+  hash (nunca em texto puro).
 - 📁 **Várias obras** — cada obra com nome e endereço.
 - 🚪 **Organização por cômodo** — Sala, Cozinha, Banheiro, etc.
 - 📷 **Upload pelo celular ou computador** — tirar foto na hora (câmera) ou
@@ -45,6 +49,24 @@ python app.py
 ```
 
 Depois abra **http://localhost:5000** no navegador.
+
+### Primeiro acesso (login)
+
+Na primeira vez que o sistema sobe, ele cria um usuário administrador:
+
+- **Email:** `admin@stewart.local` (ou o valor de `ADMIN_EMAIL` no `.env`)
+- **Senha:** `admin` (ou o valor de `ADMIN_SENHA` no `.env`)
+
+Entre com esse usuário, vá em **"Minha conta"** e troque a senha. Depois, em
+**"Usuários"**, crie as contas das demais pessoas da equipe.
+
+### Banco de dados
+
+- **Local (desenvolvimento):** SQLite, sem configurar nada (arquivo
+  `data/stewart.db`).
+- **Produção (online):** PostgreSQL — defina `DATABASE_URL` no `.env` com a URL
+  fornecida pela hospedagem. O mesmo código funciona nos dois.
+- Defina também `SECRET_KEY` (chave longa e aleatória) ao publicar.
 
 ### Usando pelo celular
 
@@ -86,6 +108,48 @@ clique em **Gerar** e, se gostar do resultado, em **Autorizar e aplicar**.
 > verificada** (verificação de identidade em
 > platform.openai.com/settings/organization/general) e que a conta tenha
 > **créditos**. A cobrança é por imagem gerada.
+
+## Segurança
+
+O sistema usa **defesa em camadas** (várias proteções somadas). Nenhum sistema
+é 100% imune, mas estas camadas elevam muito o custo de um ataque:
+
+- **Isolamento por usuário (row-level)** — toda consulta filtra pelo dono e
+  toda rota verifica a posse do recurso. Um usuário nunca vê/acessa obras,
+  cômodos, fotos ou arquivos de outro (testado automaticamente). A entrega das
+  imagens (`/uploads/...`) também exige login e checa o dono.
+- **Senhas com hash** — guardadas com `werkzeug.security` (PBKDF2), nunca em
+  texto puro. Tamanho mínimo de 8 caracteres.
+- **Proteção CSRF** — todo formulário/requisição de escrita exige um token
+  anti-CSRF (Flask-WTF), bloqueando ações forjadas por sites maliciosos.
+- **Limite de requisições** (Flask-Limiter) — login limitado por minuto
+  (anti força-bruta) e edição por IA limitada por hora (anti abuso/custo).
+- **Cookies de sessão endurecidos** — `HttpOnly`, `SameSite=Lax` e `Secure`
+  (HTTPS) em produção.
+- **Cabeçalhos de segurança** — `Content-Security-Policy`, `X-Frame-Options`
+  (anti-clickjacking), `X-Content-Type-Options`, `Referrer-Policy` e, em
+  produção, `HSTS`.
+- **HTTPS em produção** — via `ProxyFix` (atrás de proxy reverso) + cookies
+  Secure. `SECRET_KEY` é **obrigatória** em produção (a app recusa subir sem).
+- **SQL injection** — uso de ORM (SQLAlchemy) com consultas parametrizadas.
+
+### Sobre "RLS" (Row Level Security)
+
+RLS é um recurso do **PostgreSQL** que aplica o filtro por dono no próprio
+banco, como camada extra. Hoje o isolamento é feito na **aplicação** (o padrão
+para apps assim, e o que está testado). Para ligar o RLS do Postgres como
+reforço, é preciso informar ao banco "quem é o usuário atual" a cada requisição
+(`SET app.current_user_id`) e criar políticas por tabela — posso configurar
+isso quando formos publicar no Postgres, se você quiser essa camada a mais.
+
+### Variáveis de ambiente de segurança (produção)
+
+| Variável | Para quê |
+|----------|----------|
+| `SECRET_KEY` | Assina o cookie de sessão (obrigatória). Gere com `python -c "import secrets; print(secrets.token_hex(32))"`. |
+| `DATABASE_URL` | URL do PostgreSQL. Ativa o "modo produção" (cookies Secure, HSTS). |
+| `RATELIMIT_STORAGE_URI` | Redis para o limite de requisições quando houver mais de um servidor. |
+| `ADMIN_EMAIL` / `ADMIN_SENHA` | Primeiro administrador, criado na 1ª subida. |
 
 ## Estrutura do projeto
 

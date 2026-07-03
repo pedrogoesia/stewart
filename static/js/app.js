@@ -1,9 +1,20 @@
 // Stewart — interações da página da obra (upload, descrições, cômodos).
 
+// Token CSRF: enviado em todo POST para o servidor confirmar que a requisição
+// partiu da nossa própria página (e não de um site malicioso).
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+
 function postForm(url, data) {
   const fd = new FormData();
   for (const k in data) fd.append(k, data[k]);
-  return fetch(url, { method: "POST", body: fd });
+  return fetch(url, {
+    method: "POST",
+    body: fd,
+    headers: { "X-CSRFToken": csrfToken() },
+  });
 }
 
 // ---------------------------------------------------------------- Cômodos
@@ -33,6 +44,10 @@ function comodoTemplate(id, nome) {
       <h2 class="comodo-nome" data-id="${id}">${escapeHtml(nome)}</h2>
       <div class="comodo-tools">
         <span class="badge foto-count">0 foto(s)</span>
+        <span class="comodo-mover">
+          <button class="btn btn-sm btn-ghost btn-icon" title="Mover para cima" onclick="moverComodo(${id}, -1)">↑</button>
+          <button class="btn btn-sm btn-ghost btn-icon" title="Mover para baixo" onclick="moverComodo(${id}, 1)">↓</button>
+        </span>
         <button class="btn btn-sm btn-ghost" onclick="renomearComodo(${id})">Renomear</button>
         <button class="btn btn-sm btn-ghost-danger" onclick="excluirComodo(${id})">Excluir</button>
       </div>
@@ -63,6 +78,29 @@ async function excluirComodo(id) {
   if (resp.ok) document.querySelector(`[data-comodo-id="${id}"]`).remove();
 }
 
+// Move um cômodo para cima (-1) ou para baixo (1) e salva a nova ordem.
+async function moverComodo(id, dir) {
+  const sec = document.querySelector(`.comodo[data-comodo-id="${id}"]`);
+  if (!sec) return;
+  if (dir < 0) {
+    const prev = sec.previousElementSibling;
+    if (!prev || !prev.classList.contains("comodo")) return;  // já é o primeiro
+    sec.parentNode.insertBefore(sec, prev);
+  } else {
+    const next = sec.nextElementSibling;
+    if (!next || !next.classList.contains("comodo")) return;   // já é o último
+    sec.parentNode.insertBefore(next, sec);
+  }
+  sec.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  await salvarOrdemComodos();
+}
+
+async function salvarOrdemComodos() {
+  const ids = [...document.querySelectorAll("#comodos .comodo[data-comodo-id]")]
+    .map((s) => s.dataset.comodoId);
+  await postForm(`/obra/${window.OBRA_ID}/comodos/reordenar`, { ordem: ids.join(",") });
+}
+
 // ------------------------------------------------------------------ Fotos
 async function enviarFotos(input, comodoId) {
   const files = Array.from(input.files);
@@ -82,6 +120,7 @@ async function enviarFotos(input, comodoId) {
       fd.append("descricao", "");
       const resp = await fetch(`/comodo/${comodoId}/fotos`, {
         method: "POST", body: fd,
+        headers: { "X-CSRFToken": csrfToken() },
       });
       if (!resp.ok) throw new Error((await resp.json()).erro || "falha");
       const f = await resp.json();
@@ -137,6 +176,13 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+// Abre uma imagem em tela cheia (lightbox). Usado na grade e no pop-up de IA.
+function abrirLightbox(src) {
+  if (!src) return;
+  document.getElementById("lightbox-img").src = src;
+  document.getElementById("lightbox").showModal();
+}
+
 // -------------------------------------------------- Arrastar / reordenar
 // Implementação própria com Pointer Events (funciona no mouse e no toque),
 // sem depender de bibliotecas externas. A foto é arrastada pela imagem.
@@ -156,6 +202,26 @@ function habilitarArrasto(grid) {
 function iniciarArrasto(e, grid, item, handle) {
   if (arrasto || e.button === 2) return;     // ignora clique direito
   e.preventDefault();
+
+  // Ainda não começa a arrastar: só registra o ponto inicial. O arraste de
+  // verdade começa quando o ponteiro se move além do limiar (ver aoMover).
+  // Se soltar sem mover, é um clique → abre a imagem em tela cheia.
+  arrasto = {
+    grid, item, handle,
+    startX: e.clientX,
+    startY: e.clientY,
+    iniciado: false,
+  };
+
+  handle.setPointerCapture(e.pointerId);
+  handle.addEventListener("pointermove", aoMover);
+  handle.addEventListener("pointerup", aoSoltar);
+  handle.addEventListener("pointercancel", aoCancelar);
+}
+
+// Promove o estado "pendente" para um arraste de verdade (a foto passa a flutuar).
+function comecarArrasto() {
+  const { item, startX, startY } = arrasto;
   const rect = item.getBoundingClientRect();
 
   // espaço tracejado que mostra onde a foto vai cair
@@ -164,12 +230,10 @@ function iniciarArrasto(e, grid, item, handle) {
   placeholder.style.height = rect.height + "px";
   item.after(placeholder);
 
-  arrasto = {
-    grid, item, handle, placeholder,
-    dx: e.clientX - rect.left,
-    dy: e.clientY - rect.top,
-    moveu: false,
-  };
+  arrasto.placeholder = placeholder;
+  arrasto.dx = startX - rect.left;
+  arrasto.dy = startY - rect.top;
+  arrasto.iniciado = true;
 
   // a foto "flutua" e segue o ponteiro
   item.classList.add("dragging");
@@ -180,12 +244,6 @@ function iniciarArrasto(e, grid, item, handle) {
     margin: "0",
     zIndex: "1000",
   });
-  moverFlutuante(e.clientX, e.clientY);
-
-  handle.setPointerCapture(e.pointerId);
-  handle.addEventListener("pointermove", aoMover);
-  handle.addEventListener("pointerup", aoSoltar);
-  handle.addEventListener("pointercancel", aoSoltar);
   document.body.classList.add("arrastando");
 }
 
@@ -196,7 +254,12 @@ function moverFlutuante(x, y) {
 
 function aoMover(e) {
   if (!arrasto) return;
-  arrasto.moveu = true;
+  if (!arrasto.iniciado) {
+    // só vira arraste depois de mover ~6px; abaixo disso ainda pode ser clique
+    const dist = Math.hypot(e.clientX - arrasto.startX, e.clientY - arrasto.startY);
+    if (dist < 6) return;
+    comecarArrasto();
+  }
   moverFlutuante(e.clientX, e.clientY);
   rolarSeNecessario(e.clientY);
   const ref = posicaoDestino(arrasto.grid, e.clientX, e.clientY);
@@ -211,22 +274,47 @@ function rolarSeNecessario(y) {
   else if (y > window.innerHeight - margem) window.scrollBy(0, 12);
 }
 
-function aoSoltar() {
-  if (!arrasto) return;
-  const { grid, item, handle, placeholder } = arrasto;
+function desligarArrasto() {
+  const { handle } = arrasto;
   handle.removeEventListener("pointermove", aoMover);
   handle.removeEventListener("pointerup", aoSoltar);
-  handle.removeEventListener("pointercancel", aoSoltar);
+  handle.removeEventListener("pointercancel", aoCancelar);
+}
+
+function aoSoltar() {
+  if (!arrasto) return;
+  const { grid, item, handle, placeholder, iniciado } = arrasto;
+  desligarArrasto();
+
+  if (!iniciado) {
+    // não arrastou: foi um clique → abre a imagem em tela cheia
+    arrasto = null;
+    abrirLightbox(handle.src);
+    return;
+  }
 
   grid.insertBefore(item, placeholder);
   placeholder.remove();
   item.classList.remove("dragging");
   item.style.cssText = "";
   document.body.classList.remove("arrastando");
-
-  const moveu = arrasto.moveu;
   arrasto = null;
-  if (moveu) salvarOrdem(grid);
+  salvarOrdem(grid);
+}
+
+// Cancelamento (ex.: rolagem no toque): desfaz sem abrir o lightbox.
+function aoCancelar() {
+  if (!arrasto) return;
+  const { grid, item, placeholder, iniciado } = arrasto;
+  desligarArrasto();
+  if (iniciado) {
+    grid.insertBefore(item, placeholder);
+    placeholder.remove();
+    item.classList.remove("dragging");
+    item.style.cssText = "";
+    document.body.classList.remove("arrastando");
+  }
+  arrasto = null;
 }
 
 // Retorna o elemento antes do qual o arrastado deve ser inserido (ou null = fim)
@@ -282,7 +370,9 @@ function abrirEditarIA(fotoId, btn) {
 
 function resetarResultadoIA() {
   document.getElementById("ia-result-box").innerHTML =
-    '<span class="muted">Gere para ver o resultado aqui</span>';
+    '<div class="ia-result-empty">' +
+    '<span class="ia-result-icon">🖼️</span>' +
+    '<span class="muted">Gere para ver o resultado aqui</span></div>';
   document.getElementById("ia-aplicar").hidden = true;
   document.getElementById("ia-gerar").disabled = false;
 }
@@ -303,7 +393,7 @@ async function gerarIA() {
     const resp = await postForm(`/foto/${iaState.fotoId}/editar-ia`, { prompt });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.erro || "Falha ao gerar.");
-    box.innerHTML = `<img src="${data.preview_url}?t=${Date.now()}" alt="">`;
+    box.innerHTML = `<img src="${data.preview_url}?t=${Date.now()}" alt="" onclick="abrirLightbox(this.src)">`;
     iaState.temPreview = true;
     document.getElementById("ia-aplicar").hidden = false;
   } catch (e) {

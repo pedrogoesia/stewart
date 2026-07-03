@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 224 60" role="img" aria-label="Stewart Engenharia">
+  <!-- Badge do "S" -->
+  <g transform="translate(0,8)">
+    <rect width="44" height="44" rx="10" fill="#C75B4E"/>
+    <g transform="scale(0.6875)">
+      <path d="M44 23.5c0-5.4-5.4-8-12-8-6.4 0-12 3-12 9 0 5.8 5.8 8 12 9.2 6.2 1.2 12 2.8 12 8.3 0 6-5.6 8.5-12 8.5-6.4 0-12-2.4-12-8.2"
+            fill="none" stroke="#fff" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+  <!-- Wordmark (claro) -->
+  <text x="58" y="35" font-family="Helvetica, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="0.5" fill="#ffffff">STEWART</text>
+  <text x="59" y="49" font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="600" letter-spacing="5" fill="rgba(255,255,255,0.6)">ENGENHARIA</text>
+</svg>

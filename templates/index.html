@@ -2,8 +2,13 @@
 {% block title %}Obras — Stewart{% endblock %}
 
 {% block content %}
+<a class="back-link" href="{{ url_for('auth.home') }}">← Início</a>
 <div class="page-head">
-  <h1>Obras</h1>
+  <div>
+    <span class="dash-eyebrow">Ferramenta</span>
+    <h1>Relatórios de Obras</h1>
+    <p class="muted">Suas obras e fotos para gerar os relatórios.</p>
+  </div>
   <button class="btn btn-primary" onclick="document.getElementById('nova-obra').showModal()">
     + Nova obra
   </button>
@@ -13,7 +18,7 @@
 <div class="cards">
   {% for o in obras %}
   <div class="card">
-    <a class="card-main" href="{{ url_for('obra_detail', obra_id=o.id) }}">
+    <a class="card-main" href="{{ url_for('relatorios.obra_detail', obra_id=o.id) }}">
       <h2>{{ o.nome }}</h2>
       {% if o.endereco %}<p class="muted">{{ o.endereco }}</p>{% endif %}
       <p class="stats">
@@ -22,9 +27,10 @@
       </p>
     </a>
     <div class="card-actions">
-      <a class="btn btn-sm" href="{{ url_for('obra_detail', obra_id=o.id) }}">Abrir</a>
-      <form method="post" action="{{ url_for('excluir_obra', obra_id=o.id) }}"
+      <a class="btn btn-sm" href="{{ url_for('relatorios.obra_detail', obra_id=o.id) }}">Abrir</a>
+      <form method="post" action="{{ url_for('relatorios.excluir_obra', obra_id=o.id) }}"
             onsubmit="return confirm('Excluir a obra {{ o.nome }} e todas as fotos?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button class="btn btn-sm btn-ghost-danger" type="submit">Excluir</button>
       </form>
     </div>
@@ -41,7 +47,8 @@
 {% endif %}
 
 <dialog id="nova-obra" class="modal">
-  <form method="post" action="{{ url_for('criar_obra') }}">
+  <form method="post" action="{{ url_for('relatorios.criar_obra') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3>Nova obra</h3>
     <label>Nome da obra
       <input type="text" name="nome" required placeholder="Ex.: Residencial Jardins" autofocus>

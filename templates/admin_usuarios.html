@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Usuários — Stewart{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <h1>Usuários</h1>
+</div>
+
+{% if ok %}<p class="auth-ok">✓ {{ ok }}</p>{% endif %}
+{% if erro %}<p class="auth-erro">⚠️ {{ erro }}</p>{% endif %}
+
+<!-- Criar usuário -->
+<section class="panel">
+  <h3>Criar novo usuário</h3>
+  <form method="post" action="{{ url_for('auth.admin_criar_usuario') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field-row">
+      <label>Nome
+        <input type="text" name="nome" placeholder="Nome da pessoa">
+      </label>
+      <label>Email
+        <input type="email" name="email" placeholder="email@exemplo.com" required>
+      </label>
+      <label>Senha inicial
+        <input type="text" name="senha" placeholder="senha provisória" required>
+      </label>
+      <label class="check-inline">
+        <input type="checkbox" name="is_admin"> Administrador
+      </label>
+    </div>
+    <button class="btn btn-primary" type="submit">+ Criar usuário</button>
+  </form>
+</section>
+
+<!-- Lista de usuários -->
+<section class="panel">
+  <h3>Usuários cadastrados</h3>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead>
+        <tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Obras</th><th>Ações</th></tr>
+      </thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr>
+          <td>{{ u.nome or '—' }}</td>
+          <td>{{ u.email }}</td>
+          <td>{% if u.is_admin %}<span class="badge badge-admin">Admin</span>{% else %}Usuário{% endif %}</td>
+          <td>{{ u.obras|length }}</td>
+          <td class="acoes-cel">
+            <form method="post" action="{{ url_for('auth.admin_redefinir_senha', user_id=u.id) }}"
+                  class="acao-senha"
+                  onsubmit="return confirm('Redefinir a senha de {{ u.email }}?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="text" name="senha" placeholder="nova senha" required>
+              <button class="btn btn-sm btn-ghost" type="submit">Redefinir</button>
+            </form>
+            {% if u.id != current_user.id %}
+            <form method="post" action="{{ url_for('auth.admin_excluir_usuario', user_id=u.id) }}"
+                  onsubmit="return confirm('Excluir {{ u.email }} e TODAS as obras/fotos dele? Esta ação não pode ser desfeita.');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-ghost-danger" type="submit">Excluir</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

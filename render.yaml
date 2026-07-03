@@ -1,0 +1,39 @@
+# Configuração de deploy no Render (Blueprint).
+# No Render: New → Blueprint → conecte este repositório. Ele cria o site (web)
+# e o disco das fotos. O banco PostgreSQL é externo (Neon, grátis): você cola o
+# endereço dele na variável DATABASE_URL no painel.
+#
+# Segredos a definir no painel (marcados com "sync: false"):
+#   - DATABASE_URL  → connection string do banco do Neon (neon.tech)
+#   - ADMIN_SENHA   → senha do primeiro administrador (mín. 8 caracteres)
+#   - OPENAI_API_KEY→ opcional (edição de fotos por IA)
+
+services:
+  - type: web
+    name: stewart-os
+    runtime: python
+    plan: starter            # necessário p/ ter disco persistente (fotos)
+    branch: claude/determined-thompson-IO3vD
+    buildCommand: pip install -r requirements.txt
+    # Cria/atualiza as tabelas e o admin, depois sobe o servidor de produção.
+    startCommand: python -c "import app; app.init_db()" && gunicorn --workers 2 --timeout 120 --bind 0.0.0.0:$PORT app:app
+    healthCheckPath: /login
+    disk:
+      name: stewart-data
+      mountPath: /var/data   # as fotos ficam aqui (persistente)
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DATA_DIR
+        value: /var/data
+      - key: SECRET_KEY
+        generateValue: true   # o Render gera uma chave forte automaticamente
+      - key: ADMIN_EMAIL
+        value: admin@stewart.local
+      - key: ADMIN_SENHA
+        sync: false           # defina no painel (sua senha de admin)
+      - key: OPENAI_API_KEY
+        sync: false           # opcional (edição de fotos por IA)
+      - key: DATABASE_URL
+        sync: false           # cole aqui o endereço do banco do Neon

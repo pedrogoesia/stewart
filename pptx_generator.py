@@ -51,10 +51,12 @@ def _find_layout(prs, name):
     raise RuntimeError(f"Layout '{name}' não encontrado no template.")
 
 
-def _replace_text_keep_format(shape, new_text, font_name=None, size=None):
+def _replace_text_keep_format(shape, new_text, font_name=None, size=None,
+                              bold=None):
     """Substitui o texto de uma forma preservando a formatação do 1º run.
 
-    Opcionalmente aplica fonte (font_name) e tamanho em pontos (size).
+    Opcionalmente aplica fonte (font_name), tamanho em pontos (size) e
+    negrito (bold).
     """
     if not shape.has_text_frame:
         return
@@ -73,6 +75,8 @@ def _replace_text_keep_format(shape, new_text, font_name=None, size=None):
         run.font.name = font_name
     if size is not None:
         run.font.size = Pt(size)
+    if bold is not None:
+        run.font.bold = bold
 
 
 def _set_cover(slide, obra_nome, endereco, periodo_label):
@@ -85,9 +89,13 @@ def _set_cover(slide, obra_nome, endereco, periodo_label):
             _replace_text_keep_format(
                 shape, f"RELATÓRIO FOTOGRÁFICO – {periodo_label}")
         elif txt == "NOME DA OBRA":
-            _replace_text_keep_format(shape, obra_nome, "Helvetica", 19)
+            # Nome da obra: Helvetica 19, negrito, em maiúsculas.
+            _replace_text_keep_format(shape, (obra_nome or "").upper(),
+                                      "Helvetica", 19, bold=True)
         elif txt == "ENDEREÇO DA OBRA":
-            _replace_text_keep_format(shape, endereco or "", "Helvetica", 9)
+            # Endereço (rua): Helvetica 9, normal, em maiúsculas.
+            _replace_text_keep_format(shape, (endereco or "").upper(),
+                                      "Helvetica", 9, bold=False)
 
 
 def _remove_static_month(prs):
@@ -184,7 +192,7 @@ def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
     # Foto da esquerda (sempre existe)
     f1 = fotos_par[0]
     pic_l = _placeholder(slide, PH_PIC_LEFT)
-    pic_l.insert_picture(f1["path"])
+    foto1 = pic_l.insert_picture(f1["path"])
     _set_caption(slide, PH_CAP_LEFT, f1.get("descricao", ""))
 
     # Foto da direita (opcional)
@@ -194,13 +202,41 @@ def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
         pic_r.insert_picture(f2["path"])
         _set_caption(slide, PH_CAP_RIGHT, f2.get("descricao", ""))
     else:
-        # Remove os espaços reservados não usados para um slide limpo.
+        # Slide com 1 foto só (cômodo com número ímpar de fotos): remove os
+        # espaços da direita e centraliza a foto e a legenda no meio do slide.
         for idx in (PH_PIC_RIGHT, PH_CAP_RIGHT):
             ph = _placeholder(slide, idx)
             if ph is not None:
                 _remove_shape(ph)
+        _centralizar_foto_unica(prs, slide, foto1)
 
     return slide
+
+
+def _centralizar_foto_unica(prs, slide, foto):
+    """Centraliza horizontalmente a foto sozinha (e sua legenda) no slide.
+
+    Atenção: a foto e a legenda HERDAM a posição/tamanho do layout (não têm
+    geometria própria). Se definirmos só a coordenada X, o python-pptx cria uma
+    posição incompleta (sem largura/altura e com topo 0), o que joga a foto
+    sobre o cabeçalho e faz o PowerPoint não exibi-la. Por isso fixamos a
+    geometria COMPLETA (esquerda, topo, largura e altura).
+    """
+    def _centralizar(shape):
+        # Lê a geometria herdada ANTES de qualquer alteração.
+        top, w, h = shape.top, shape.width, shape.height
+        shape.left = (prs.slide_width - w) // 2
+        shape.top = top
+        shape.width = w
+        shape.height = h
+
+    _centralizar(foto)
+
+    cap = _placeholder(slide, PH_CAP_LEFT)
+    if cap is not None:
+        _centralizar(cap)
+        for p in cap.text_frame.paragraphs:
+            p.alignment = PP_ALIGN.CENTER  # texto centralizado sob a foto
 
 
 def gerar_relatorio(template_path, output_path, obra, periodo_label, comodos):

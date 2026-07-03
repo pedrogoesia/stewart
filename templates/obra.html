@@ -2,7 +2,7 @@
 {% block title %}{{ obra.nome }} — Stewart{% endblock %}
 
 {% block content %}
-<a class="back-link" href="{{ url_for('index') }}">← Todas as obras</a>
+<a class="back-link" href="{{ url_for('relatorios.index') }}">← Todas as obras</a>
 
 <div class="page-head">
   <div>
@@ -15,7 +15,7 @@
 <!-- Painel de geração -->
 <section class="panel">
   <h3>Gerar relatório mensal</h3>
-  <form class="report-form" method="get" action="{{ url_for('baixar_relatorio', obra_id=obra.id) }}">
+  <form class="report-form" method="get" action="{{ url_for('relatorios.baixar_relatorio', obra_id=obra.id) }}">
     <div class="field-row">
       <label>Mês
         <select name="mes">
@@ -30,7 +30,7 @@
       <button type="submit" class="btn btn-primary">⬇ Gerar PowerPoint</button>
     </div>
   </form>
-  <a class="btn btn-ghost" href="{{ url_for('baixar_fotos_zip', obra_id=obra.id) }}">
+  <a class="btn btn-ghost" href="{{ url_for('relatorios.baixar_fotos_zip', obra_id=obra.id) }}">
     ⬇ Baixar fotos (.zip por cômodo)
   </a>
 </section>
@@ -53,6 +53,10 @@
       <h2 class="comodo-nome" data-id="{{ c.id }}">{{ c.nome }}</h2>
       <div class="comodo-tools">
         <span class="badge foto-count">{{ grupo.fotos|length }} foto(s)</span>
+        <span class="comodo-mover">
+          <button class="btn btn-sm btn-ghost btn-icon" title="Mover para cima" onclick="moverComodo({{ c.id }}, -1)">↑</button>
+          <button class="btn btn-sm btn-ghost btn-icon" title="Mover para baixo" onclick="moverComodo({{ c.id }}, 1)">↓</button>
+        </span>
         <button class="btn btn-sm btn-ghost" onclick="renomearComodo({{ c.id }})">Renomear</button>
         <button class="btn btn-sm btn-ghost-danger" onclick="excluirComodo({{ c.id }})">Excluir</button>
       </div>
@@ -70,7 +74,7 @@
     <div class="foto-grid" data-grid="{{ c.id }}">
       {% for f in grupo.fotos %}
       <figure class="foto" data-foto-id="{{ f.id }}">
-        <img src="{{ url_for('servir_foto', filename=f.arquivo) }}" loading="lazy" alt="">
+        <img src="{{ url_for('relatorios.servir_foto', filename=f.arquivo) }}" loading="lazy" alt="">
         <textarea class="foto-desc" placeholder="Descrição da foto…"
                   onchange="salvarDescricao({{ f.id }}, this)">{{ f.descricao }}</textarea>
         <button class="foto-ia" title="Editar com IA" onclick="abrirEditarIA({{ f.id }}, this)">✨</button>
@@ -87,20 +91,37 @@
 {% endif %}
 
 <dialog id="ia-modal" class="modal modal-ia">
-  <h3>✨ Editar foto com IA</h3>
-  <p class="muted ia-aviso">Descreva o que mudar. A foto só é trocada depois que você autorizar.</p>
+  <header class="ia-header">
+    <span class="ia-badge">✨</span>
+    <div class="ia-head-text">
+      <h3>Editar foto com IA</h3>
+      <p class="muted ia-aviso">Descreva o que mudar. A foto só é trocada depois que você autorizar.</p>
+    </div>
+    <button type="button" class="ia-close" onclick="fecharIA()" aria-label="Fechar">×</button>
+  </header>
+
   <div class="ia-images">
     <figure>
-      <figcaption>Original</figcaption>
-      <img id="ia-original" alt="">
+      <figcaption><span class="ia-dot ia-dot-orig"></span>Original</figcaption>
+      <img id="ia-original" alt="" onclick="abrirLightbox(this.src)">
     </figure>
     <figure>
-      <figcaption>Resultado da IA</figcaption>
-      <div id="ia-result-box"><span class="muted">Gere para ver o resultado aqui</span></div>
+      <figcaption><span class="ia-dot ia-dot-ia"></span>Resultado da IA</figcaption>
+      <div id="ia-result-box">
+        <div class="ia-result-empty">
+          <span class="ia-result-icon">🖼️</span>
+          <span class="muted">Gere para ver o resultado aqui</span>
+        </div>
+      </div>
     </figure>
   </div>
-  <textarea id="ia-prompt" rows="2"
-            placeholder="Ex.: remova a vassoura encostada na parede"></textarea>
+
+  <label class="ia-prompt-field">
+    <span class="ia-prompt-label">O que você quer mudar?</span>
+    <textarea id="ia-prompt" rows="2"
+              placeholder="Ex.: remova a vassoura encostada na parede"></textarea>
+  </label>
+
   <div class="modal-actions">
     <button type="button" class="btn btn-ghost" onclick="fecharIA()">Fechar</button>
     <button type="button" class="btn btn-primary" id="ia-gerar" onclick="gerarIA()">Gerar</button>
@@ -109,7 +130,8 @@
 </dialog>
 
 <dialog id="editar-obra" class="modal">
-  <form method="post" action="{{ url_for('editar_obra', obra_id=obra.id) }}">
+  <form method="post" action="{{ url_for('relatorios.editar_obra', obra_id=obra.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h3>Editar obra</h3>
     <label>Nome da obra
       <input type="text" name="nome" value="{{ obra.nome }}" required>
@@ -123,6 +145,11 @@
     </div>
   </form>
 </dialog>
+
+<!-- Visualizador de imagem em tela cheia (clique na imagem ou Esc para fechar) -->
+<dialog id="lightbox" class="lightbox" onclick="this.close()">
+  <img id="lightbox-img" alt="">
+</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -130,5 +157,5 @@
   window.OBRA_ID = {{ obra.id }};
   window.IA_ATIVA = {{ 'true' if ia_ativa else 'false' }};
 </script>
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ asset('js/app.js') }}"></script>
 {% endblock %}

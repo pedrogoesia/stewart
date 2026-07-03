@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Atividades — Stewart{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('auth.admin_usuarios') }}">← Usuários</a>
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Administração</span>
+    <h1>Atividades</h1>
+    <p class="muted">Histórico das ações dos usuários (mais recentes primeiro).
+      Mostrando os últimos {{ itens|length }} registros.</p>
+  </div>
+</div>
+
+<section class="panel">
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead>
+        <tr><th>Quando</th><th>Usuário</th><th>Ação</th><th>Detalhe</th><th>IP</th></tr>
+      </thead>
+      <tbody>
+        {% for a in itens %}
+        <tr>
+          <td class="ativ-quando">{{ a.quando }}</td>
+          <td>{{ a.email }}</td>
+          <td><span class="ativ-tag ativ-{{ a.acao }}">{{ a.acao.replace('_', ' ') }}</span></td>
+          <td>{{ a.descricao }}</td>
+          <td class="ativ-ip">{{ a.ip }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="muted" style="text-align:center; padding:24px;">
+          Ainda não há atividades registradas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

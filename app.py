@@ -1,39 +1,25 @@
-"""
-Stewart Construtora — Sistema de Relatórios Fotográficos de Obras.
+"""Stewart — Plataforma de ferramentas para construtora.
 
-Aplicação web (celular + computador) para:
-  - cadastrar obras;
-  - anexar fotos organizadas por cômodo, com descrição (legenda) em cada foto;
-  - gerar o relatório mensal em PowerPoint (.pptx) usando o template oficial;
-  - baixar todas as fotos em um .zip com uma pasta por cômodo.
+Ponto de entrada da aplicação. Monta o app, liga as extensões (banco, login,
+CSRF, rate limit), registra os blueprints (cada ferramenta é um módulo) e
+aplica a segurança. As ferramentas vivem em blueprints/; o catálogo está em
+plataforma.py.
+
+Banco: SQLite no PC (desenvolvimento) e PostgreSQL em produção (DATABASE_URL).
 """
 
-import io
 import os
-import re
-import sqlite3
-import unicodedata
-import uuid
-import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from flask import (Flask, abort, g, jsonify, redirect, render_template,
-                   request, send_file, send_from_directory, url_for)
-from PIL import Image, ImageOps
+from flask import (Flask, jsonify, redirect, render_template, request,
+                   url_for)
+from flask_login import current_user
+from flask_wtf.csrf import CSRFError
+from werkzeug.middleware.proxy_fix import ProxyFix
 
-# Carrega variáveis do arquivo .env (ex.: OPENAI_API_KEY), se existir.
-# Procura tanto na pasta do app.py quanto no diretório atual, para funcionar
-# mesmo que o servidor seja iniciado de outro lugar.
-try:
-    from dotenv import load_dotenv
-    _aqui = os.path.dirname(os.path.abspath(__file__))
-    load_dotenv(os.path.join(_aqui, ".env"))
-    load_dotenv()
-except Exception:
-    pass
-
-from pptx_generator import gerar_relatorio
-from ai_edit import editar_imagem, ia_disponivel
+from config import (IS_PRODUCTION, SENHA_MIN, database_url)
+from extensions import csrf, db, limiter, login_manager
+from utils import destino_seguro
 
 # Suporte opcional a fotos HEIC/HEIF (iPhone), se a lib estiver disponível.
 try:
@@ -42,472 +28,162 @@ try:
 except Exception:
     pass
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
-DB_PATH = os.path.join(DATA_DIR, "stewart.db")
-TEMPLATE_PATH = os.path.join(BASE_DIR, "template", "TEMPLATE_STEWART.pptx")
 
-MAX_IMG_SIDE = 2000          # redimensiona fotos para no máx. 2000px (lado maior)
-JPEG_QUALITY = 85
+def create_app():
+    app = Flask(__name__)
 
-MESES = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO",
-         "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
+    # Confia nos cabeçalhos do proxy reverso (Render/Railway/Nginx) para
+    # detectar HTTPS — necessário para os cookies "Secure".
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+    app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB por upload
+    # Cache longo para arquivos estáticos (CSS/JS/imagens). As URLs de CSS/JS
+    # levam ?v=<mtime> (ver context processor 'asset'), então atualizações
+    # aparecem na hora, mas o navegador não rebaixa tudo a cada navegação.
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 31536000  # 1 ano
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url()
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
+    app.config["RATELIMIT_STORAGE_URI"] = os.environ.get(
+        "RATELIMIT_STORAGE_URI", "memory://")
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,        # JS não lê o cookie (anti-XSS)
+        SESSION_COOKIE_SAMESITE="Lax",       # não vai a outros sites
+        SESSION_COOKIE_SECURE=IS_PRODUCTION,  # só HTTPS em produção
+        PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+        WTF_CSRF_TIME_LIMIT=None,            # token de CSRF dura a sessão
+    )
 
-app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB por upload
+    # Chave que assina o cookie de sessão. EM PRODUÇÃO é obrigatória.
+    secret = os.environ.get("SECRET_KEY", "").strip()
+    if not secret:
+        if IS_PRODUCTION:
+            raise RuntimeError(
+                "SECRET_KEY não definida. Em produção, defina a variável de "
+                "ambiente SECRET_KEY com um valor longo e aleatório.")
+        secret = "dev-inseguro-troque-em-producao"
+        print("[AVISO] SECRET_KEY não definida — usando chave de "
+              "desenvolvimento. Defina SECRET_KEY no .env antes de publicar.")
+    app.config["SECRET_KEY"] = secret
+
+    # Liga as extensões a este app.
+    db.init_app(app)
+    csrf.init_app(app)
+    limiter.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = "auth.login"
+    login_manager.login_message = "Faça login para acessar esta página."
+
+    # Garante que os modelos e o user_loader sejam registrados.
+    import models  # noqa: F401
+
+    # Registra os módulos: núcleo (auth/admin) + ferramentas.
+    from blueprints.auth import bp as auth_bp
+    from blueprints.relatorios import bp as relatorios_bp
+    from blueprints.atas import bp as atas_bp
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(relatorios_bp)
+    app.register_blueprint(atas_bp)
+
+    @app.context_processor
+    def injetar_assets():
+        # URL de estático com "?v=<mtime>" para cache-busting automático.
+        def asset(filename):
+            try:
+                mtime = int(os.path.getmtime(
+                    os.path.join(app.static_folder, filename)))
+            except OSError:
+                mtime = 0
+            return url_for("static", filename=filename, v=mtime)
+        return {"asset": asset}
+
+    _registrar_seguranca(app)
+    return app
+
+
+def _registrar_seguranca(app):
+    @app.after_request
+    def aplicar_cabecalhos_seguranca(resp):
+        """Cabeçalhos HTTP que reduzem a superfície de ataque do navegador."""
+        resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["X-Frame-Options"] = "DENY"            # anti-clickjacking
+        resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        resp.headers["Permissions-Policy"] = (
+            "geolocation=(), microphone=(), camera=(self)")
+        resp.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; "
+            "form-action 'self'")
+        if IS_PRODUCTION:
+            resp.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains")
+        # Não deixa o navegador cachear PÁGINAS (CSS/JS seguem cacheáveis):
+        # evita reusar uma página antiga com token CSRF vencido.
+        if resp.mimetype == "text/html":
+            resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    @app.errorhandler(CSRFError)
+    def tratar_csrf(e):
+        # Requisições via fetch (JS) mandam o header X-CSRFToken → JSON.
+        if request.headers.get("X-CSRFToken") or request.is_json:
+            return jsonify({"erro": "Sessão expirada. Recarregue a página e "
+                            "tente novamente."}), 400
+        if not current_user.is_authenticated:
+            return render_template(
+                "login.html",
+                erro="Sua sessão expirou. Tente entrar de novo."), 400
+        destino = destino_seguro(request.referrer)
+        return redirect(destino or url_for("auth.home"))
 
 
 # ---------------------------------------------------------------------------
-# Banco de dados (SQLite)
+# Inicialização do banco (cria tabelas, migra dados antigos e cria o admin)
 # ---------------------------------------------------------------------------
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS obras (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome      TEXT NOT NULL,
-    endereco  TEXT DEFAULT '',
-    criado_em TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS comodos (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    obra_id INTEGER NOT NULL REFERENCES obras(id) ON DELETE CASCADE,
-    nome    TEXT NOT NULL,
-    ordem   INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS fotos (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    comodo_id INTEGER NOT NULL REFERENCES comodos(id) ON DELETE CASCADE,
-    arquivo   TEXT NOT NULL,
-    descricao TEXT DEFAULT '',
-    ordem     INTEGER NOT NULL DEFAULT 0,
-    criado_em TEXT NOT NULL
-);
-"""
-
-
-def get_db():
-    if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
-    return g.db
-
-
-@app.teardown_appcontext
-def close_db(exc):
-    db = g.pop("db", None)
-    if db is not None:
-        db.close()
-
-
 def init_db():
-    db = sqlite3.connect(DB_PATH)
-    db.executescript(SCHEMA)
-    # Migração: normaliza caminhos antigos salvos com "\" (Windows) para "/".
-    db.execute(r"UPDATE fotos SET arquivo = REPLACE(arquivo, '\', '/') "
-               r"WHERE arquivo LIKE '%\%'")
-    db.commit()
-    db.close()
-
-
-# ---------------------------------------------------------------------------
-# Utilidades
-# ---------------------------------------------------------------------------
-def slugify(text, default="item"):
-    text = unicodedata.normalize("NFKD", text or "")
-    text = text.encode("ascii", "ignore").decode("ascii")
-    text = re.sub(r"[^\w\s-]", "", text).strip()
-    text = re.sub(r"[\s_-]+", "_", text)
-    return text or default
-
-
-def periodo_label(mes, ano):
-    try:
-        return f"{MESES[int(mes) - 1]} {int(ano)}"
-    except (ValueError, IndexError, TypeError):
-        agora = datetime.now()
-        return f"{MESES[agora.month - 1]} {agora.year}"
-
-
-def foto_abs_path(arquivo):
-    # O caminho é guardado sempre com "/"; convertemos para o separador do SO.
-    return os.path.join(UPLOAD_DIR, *arquivo.split("/"))
-
-
-def processar_imagem(file_storage, dest_path):
-    """Corrige orientação (EXIF), redimensiona e salva como JPEG."""
-    img = Image.open(file_storage.stream)
-    img = ImageOps.exif_transpose(img)
-    if img.mode not in ("RGB", "L"):
-        img = img.convert("RGB")
-    elif img.mode == "L":
-        img = img.convert("RGB")
-    img.thumbnail((MAX_IMG_SIDE, MAX_IMG_SIDE), Image.LANCZOS)
-    img.save(dest_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
-
-
-def obra_or_404(obra_id):
-    obra = get_db().execute("SELECT * FROM obras WHERE id=?",
-                            (obra_id,)).fetchone()
-    if obra is None:
-        abort(404)
-    return obra
-
-
-def comodos_com_fotos(obra_id):
-    db = get_db()
-    comodos = db.execute(
-        "SELECT * FROM comodos WHERE obra_id=? ORDER BY ordem, id",
-        (obra_id,)).fetchall()
-    resultado = []
-    for c in comodos:
-        fotos = db.execute(
-            "SELECT * FROM fotos WHERE comodo_id=? ORDER BY ordem, id",
-            (c["id"],)).fetchall()
-        resultado.append({"comodo": c, "fotos": fotos})
-    return resultado
-
-
-# ---------------------------------------------------------------------------
-# Páginas
-# ---------------------------------------------------------------------------
-@app.route("/")
-def index():
-    db = get_db()
-    obras = db.execute("""
-        SELECT o.*,
-               (SELECT COUNT(*) FROM fotos f
-                  JOIN comodos c ON c.id = f.comodo_id
-                 WHERE c.obra_id = o.id) AS total_fotos,
-               (SELECT COUNT(*) FROM comodos c WHERE c.obra_id = o.id)
-                 AS total_comodos
-          FROM obras o
-      ORDER BY o.id DESC
-    """).fetchall()
-    return render_template("index.html", obras=obras)
-
-
-@app.route("/obra/<int:obra_id>")
-def obra_detail(obra_id):
-    obra = obra_or_404(obra_id)
-    grupos = comodos_com_fotos(obra_id)
-    agora = datetime.now()
-    return render_template("obra.html", obra=obra, grupos=grupos,
-                           meses=MESES, mes_atual=agora.month,
-                           ano_atual=agora.year, ia_ativa=ia_disponivel())
-
-
-# ---------------------------------------------------------------------------
-# API — Obras
-# ---------------------------------------------------------------------------
-@app.route("/obras", methods=["POST"])
-def criar_obra():
-    nome = (request.form.get("nome") or "").strip()
-    endereco = (request.form.get("endereco") or "").strip()
-    if not nome:
-        return redirect(url_for("index"))
-    db = get_db()
-    db.execute(
-        "INSERT INTO obras (nome, endereco, criado_em) VALUES (?,?,?)",
-        (nome, endereco, datetime.now().isoformat()))
-    db.commit()
-    return redirect(url_for("index"))
-
-
-@app.route("/obra/<int:obra_id>/editar", methods=["POST"])
-def editar_obra(obra_id):
-    obra_or_404(obra_id)
-    nome = (request.form.get("nome") or "").strip()
-    endereco = (request.form.get("endereco") or "").strip()
-    db = get_db()
-    db.execute("UPDATE obras SET nome=?, endereco=? WHERE id=?",
-               (nome, endereco, obra_id))
-    db.commit()
-    return redirect(url_for("obra_detail", obra_id=obra_id))
-
-
-@app.route("/obra/<int:obra_id>/excluir", methods=["POST"])
-def excluir_obra(obra_id):
-    obra_or_404(obra_id)
-    db = get_db()
-    # remove arquivos físicos
-    fotos = db.execute("""
-        SELECT f.arquivo FROM fotos f
-          JOIN comodos c ON c.id = f.comodo_id
-         WHERE c.obra_id=?""", (obra_id,)).fetchall()
-    for f in fotos:
-        try:
-            os.remove(foto_abs_path(f["arquivo"]))
-        except OSError:
-            pass
-    db.execute("DELETE FROM obras WHERE id=?", (obra_id,))
-    db.commit()
-    return redirect(url_for("index"))
-
-
-# ---------------------------------------------------------------------------
-# API — Cômodos
-# ---------------------------------------------------------------------------
-@app.route("/obra/<int:obra_id>/comodos", methods=["POST"])
-def criar_comodo(obra_id):
-    obra_or_404(obra_id)
-    nome = (request.form.get("nome") or "").strip()
-    if not nome:
-        return jsonify({"erro": "Nome do cômodo é obrigatório"}), 400
-    db = get_db()
-    ordem = db.execute(
-        "SELECT COALESCE(MAX(ordem), 0) + 1 AS o FROM comodos WHERE obra_id=?",
-        (obra_id,)).fetchone()["o"]
-    cur = db.execute(
-        "INSERT INTO comodos (obra_id, nome, ordem) VALUES (?,?,?)",
-        (obra_id, nome, ordem))
-    db.commit()
-    return jsonify({"id": cur.lastrowid, "nome": nome})
-
-
-@app.route("/comodo/<int:comodo_id>/renomear", methods=["POST"])
-def renomear_comodo(comodo_id):
-    nome = (request.form.get("nome") or "").strip()
-    if not nome:
-        return jsonify({"erro": "Nome inválido"}), 400
-    db = get_db()
-    db.execute("UPDATE comodos SET nome=? WHERE id=?", (nome, comodo_id))
-    db.commit()
-    return jsonify({"ok": True, "nome": nome})
-
-
-@app.route("/comodo/<int:comodo_id>/excluir", methods=["POST"])
-def excluir_comodo(comodo_id):
-    db = get_db()
-    fotos = db.execute("SELECT arquivo FROM fotos WHERE comodo_id=?",
-                       (comodo_id,)).fetchall()
-    for f in fotos:
-        try:
-            os.remove(foto_abs_path(f["arquivo"]))
-        except OSError:
-            pass
-    db.execute("DELETE FROM comodos WHERE id=?", (comodo_id,))
-    db.commit()
-    return jsonify({"ok": True})
-
-
-# ---------------------------------------------------------------------------
-# API — Fotos
-# ---------------------------------------------------------------------------
-@app.route("/comodo/<int:comodo_id>/fotos", methods=["POST"])
-def upload_foto(comodo_id):
-    db = get_db()
-    comodo = db.execute("SELECT * FROM comodos WHERE id=?",
-                        (comodo_id,)).fetchone()
-    if comodo is None:
-        return jsonify({"erro": "Cômodo não encontrado"}), 404
-
-    file = request.files.get("foto")
-    if file is None or file.filename == "":
-        return jsonify({"erro": "Nenhum arquivo enviado"}), 400
-
-    descricao = (request.form.get("descricao") or "").strip()
-    # Já inicia a legenda com o nome do cômodo, no modelo "Sala - ".
-    if not descricao:
-        descricao = f"{comodo['nome']} - "
-    # Caminho relativo guardado SEMPRE com "/" (compatível com URL e Windows).
-    rel_dir = f"{comodo['obra_id']}/{comodo_id}"
-    abs_dir = os.path.join(UPLOAD_DIR, str(comodo["obra_id"]), str(comodo_id))
-    os.makedirs(abs_dir, exist_ok=True)
-    nome_arquivo = f"{uuid.uuid4().hex}.jpg"
-    rel_path = f"{rel_dir}/{nome_arquivo}"
-
-    try:
-        processar_imagem(file, os.path.join(abs_dir, nome_arquivo))
-    except Exception as e:  # noqa: BLE001
-        return jsonify({"erro": f"Falha ao processar imagem: {e}"}), 400
-
-    ordem = db.execute(
-        "SELECT COALESCE(MAX(ordem),0)+1 AS o FROM fotos WHERE comodo_id=?",
-        (comodo_id,)).fetchone()["o"]
-    cur = db.execute(
-        """INSERT INTO fotos (comodo_id, arquivo, descricao, ordem, criado_em)
-           VALUES (?,?,?,?,?)""",
-        (comodo_id, rel_path, descricao, ordem, datetime.now().isoformat()))
-    db.commit()
-    return jsonify({
-        "id": cur.lastrowid,
-        "url": url_for("servir_foto", filename=rel_path),
-        "descricao": descricao,
-    })
-
-
-@app.route("/comodo/<int:comodo_id>/reordenar", methods=["POST"])
-def reordenar_fotos(comodo_id):
-    """Recebe os ids das fotos na nova ordem e atualiza o campo 'ordem'.
-
-    Essa ordem é a que vale no relatório PowerPoint e no .zip.
-    """
-    ids = request.form.get("ordem", "")
-    id_list = [int(x) for x in ids.split(",") if x.strip().isdigit()]
-    db = get_db()
-    for posicao, foto_id in enumerate(id_list):
-        db.execute("UPDATE fotos SET ordem=? WHERE id=? AND comodo_id=?",
-                   (posicao, foto_id, comodo_id))
-    db.commit()
-    return jsonify({"ok": True})
-
-
-@app.route("/foto/<int:foto_id>/descricao", methods=["POST"])
-def atualizar_descricao(foto_id):
-    descricao = (request.form.get("descricao") or "").strip()
-    db = get_db()
-    db.execute("UPDATE fotos SET descricao=? WHERE id=?", (descricao, foto_id))
-    db.commit()
-    return jsonify({"ok": True})
-
-
-@app.route("/foto/<int:foto_id>/excluir", methods=["POST"])
-def excluir_foto(foto_id):
-    db = get_db()
-    foto = db.execute("SELECT * FROM fotos WHERE id=?", (foto_id,)).fetchone()
-    if foto is None:
-        return jsonify({"erro": "Foto não encontrada"}), 404
-    try:
-        os.remove(foto_abs_path(foto["arquivo"]))
-    except OSError:
-        pass
-    db.execute("DELETE FROM fotos WHERE id=?", (foto_id,))
-    db.commit()
-    return jsonify({"ok": True})
-
-
-@app.route("/uploads/<path:filename>")
-def servir_foto(filename):
-    return send_from_directory(UPLOAD_DIR, filename)
-
-
-# ---------------------------------------------------------------------------
-# Edição de fotos por IA (OpenAI)
-# ---------------------------------------------------------------------------
-def _preview_rel(arquivo):
-    """Caminho relativo da prévia da edição (ainda não aplicada)."""
-    return arquivo + ".preview.jpg"
-
-
-def _foto_or_404(foto_id):
-    foto = get_db().execute("SELECT * FROM fotos WHERE id=?",
-                            (foto_id,)).fetchone()
-    if foto is None:
-        abort(404)
-    return foto
-
-
-@app.route("/foto/<int:foto_id>/editar-ia", methods=["POST"])
-def editar_foto_ia(foto_id):
-    if not ia_disponivel():
-        return jsonify({"erro": "A edição por IA não está configurada. "
-                        "Crie um arquivo .env com OPENAI_API_KEY."}), 400
-    foto = _foto_or_404(foto_id)
-    prompt = (request.form.get("prompt") or "").strip()
-    if not prompt:
-        return jsonify({"erro": "Descreva a alteração desejada."}), 400
-
-    origem = foto_abs_path(foto["arquivo"])
-    if not os.path.exists(origem):
-        return jsonify({"erro": "Arquivo da foto não encontrado."}), 404
-
-    try:
-        novos_bytes = editar_imagem(origem, prompt)
-    except Exception as e:  # noqa: BLE001
-        return jsonify({"erro": str(e)}), 502
-
-    preview_rel = _preview_rel(foto["arquivo"])
-    with open(foto_abs_path(preview_rel), "wb") as fh:
-        fh.write(novos_bytes)
-
-    return jsonify({
-        "preview_url": url_for("servir_foto", filename=preview_rel),
-        "original_url": url_for("servir_foto", filename=foto["arquivo"]),
-    })
-
-
-@app.route("/foto/<int:foto_id>/aplicar-edicao", methods=["POST"])
-def aplicar_edicao_ia(foto_id):
-    foto = _foto_or_404(foto_id)
-    preview_abs = foto_abs_path(_preview_rel(foto["arquivo"]))
-    if not os.path.exists(preview_abs):
-        return jsonify({"erro": "Nenhuma prévia para aplicar."}), 400
-    # Substitui o arquivo original pela versão editada (mantém o mesmo nome).
-    os.replace(preview_abs, foto_abs_path(foto["arquivo"]))
-    return jsonify({
-        "ok": True,
-        "url": url_for("servir_foto", filename=foto["arquivo"]),
-    })
-
-
-@app.route("/foto/<int:foto_id>/descartar-edicao", methods=["POST"])
-def descartar_edicao_ia(foto_id):
-    foto = _foto_or_404(foto_id)
-    preview_abs = foto_abs_path(_preview_rel(foto["arquivo"]))
-    try:
-        os.remove(preview_abs)
-    except OSError:
-        pass
-    return jsonify({"ok": True})
-
-
-# ---------------------------------------------------------------------------
-# Geração de relatório (.pptx) e download das fotos (.zip)
-# ---------------------------------------------------------------------------
-@app.route("/obra/<int:obra_id>/relatorio.pptx")
-def baixar_relatorio(obra_id):
-    obra = obra_or_404(obra_id)
-    label = periodo_label(request.args.get("mes"), request.args.get("ano"))
-
-    comodos = []
-    for grupo in comodos_com_fotos(obra_id):
-        fotos = [{"path": foto_abs_path(f["arquivo"]),
-                  "descricao": f["descricao"]} for f in grupo["fotos"]]
-        if fotos:
-            comodos.append({"nome": grupo["comodo"]["nome"], "fotos": fotos})
-
-    out = io.BytesIO()
-    tmp_path = os.path.join(DATA_DIR, f"_relatorio_{uuid.uuid4().hex}.pptx")
-    gerar_relatorio(TEMPLATE_PATH, tmp_path,
-                    {"nome": obra["nome"], "endereco": obra["endereco"]},
-                    label, comodos)
-    with open(tmp_path, "rb") as fh:
-        out.write(fh.read())
-    os.remove(tmp_path)
-    out.seek(0)
-
-    nome_arq = f"Relatorio_{slugify(obra['nome'])}_{slugify(label)}.pptx"
-    return send_file(
-        out, as_attachment=True, download_name=nome_arq,
-        mimetype=("application/vnd.openxmlformats-officedocument"
-                  ".presentationml.presentation"))
-
-
-@app.route("/obra/<int:obra_id>/fotos.zip")
-def baixar_fotos_zip(obra_id):
-    obra = obra_or_404(obra_id)
-    buffer = io.BytesIO()
-    obra_slug = slugify(obra["nome"], "obra")
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        for grupo in comodos_com_fotos(obra_id):
-            comodo_slug = slugify(grupo["comodo"]["nome"], "comodo")
-            for i, f in enumerate(grupo["fotos"], start=1):
-                src = foto_abs_path(f["arquivo"])
-                if not os.path.exists(src):
-                    continue
-                desc = slugify(f["descricao"], "")[:40]
-                base = f"{i:02d}_{desc}" if desc else f"{i:02d}"
-                arcname = f"{obra_slug}/{comodo_slug}/{base}.jpg"
-                zf.write(src, arcname)
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True,
-                     download_name=f"Fotos_{obra_slug}.zip",
-                     mimetype="application/zip")
-
+    from models import Usuario
+    with app.app_context():
+        db.create_all()
+        _criar_admin_inicial(Usuario)
+
+
+def _criar_admin_inicial(Usuario):
+    """Cria o primeiro admin se não houver nenhum usuário ainda."""
+    if Usuario.query.count() == 0:
+        email = os.environ.get("ADMIN_EMAIL", "admin@stewart.local").strip().lower()
+        senha = os.environ.get("ADMIN_SENHA", "").strip()
+        if not senha:
+            if IS_PRODUCTION:
+                raise RuntimeError(
+                    "ADMIN_SENHA nao definida. Defina uma senha inicial forte "
+                    "antes de publicar.")
+            senha = "admin"
+        if IS_PRODUCTION and len(senha) < SENHA_MIN:
+            raise RuntimeError(
+                f"ADMIN_SENHA deve ter pelo menos {SENHA_MIN} caracteres.")
+        admin = Usuario(email=email, nome="Administrador", is_admin=True,
+                        criado_em=datetime.now().isoformat())
+        admin.definir_senha(senha)
+        db.session.add(admin)
+        db.session.commit()
+        print("[INFO] Usuário administrador criado.")
+        print(f"       Email: {email}")
+        if not os.environ.get("ADMIN_SENHA"):
+            print("       Senha: admin   <-- TROQUE em 'Minha conta' após entrar!")
+
+
+# Cria o app no nível do módulo (usado pelo servidor e pelos testes).
+app = create_app()
+
+# Reexporta para os testes/servidor.
+from models import Comodo, Foto, Obra, Usuario  # noqa: E402,F401
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    debug = os.environ.get("FLASK_DEBUG") == "1" and not IS_PRODUCTION
+    # threaded=True: atende vários pedidos ao mesmo tempo (ex.: carregar várias
+    # fotos enquanto você clica em botões) — evita a sensação de travamento.
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)),
+            debug=debug, threaded=True)

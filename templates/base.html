@@ -4,22 +4,65 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#A3212B">
-  <title>{% block title %}Stewart — Relatórios de Obras{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Plataforma Stewart{% endblock %}</title>
+  <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="{{ url_for('index') }}">
-      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Stewart" class="brand-logo">
-      <span class="brand-text">Relatórios de Obras</span>
+{% from "_icones.html" import icone %}
+<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">
+
+{% if current_user.is_authenticated %}
+<!-- Topo (só no mobile) -->
+<header class="mob-top">
+  <button class="mob-menu" type="button" onclick="document.body.classList.toggle('sidebar-aberta')" aria-label="Menu">{{ icone('menu') }}</button>
+  <span class="mob-brand">Stewart</span>
+</header>
+
+<div class="sb-overlay" onclick="document.body.classList.remove('sidebar-aberta')"></div>
+
+<!-- Barra lateral -->
+<aside class="sidebar">
+  <div class="sb-top">
+    <a class="sb-brand" href="{{ url_for('auth.home') }}">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Stewart Engenharia" class="sb-logo-full">
     </a>
-    {% block topbar_extra %}{% endblock %}
-  </header>
+  </div>
 
-  <main class="container">
+  <nav class="sb-nav">
+    <div class="sb-sec">Ferramentas</div>
+    <a class="sb-item {% if request.path == url_for('relatorios.index') %}ativo{% endif %}"
+       href="{{ url_for('relatorios.index') }}">{{ icone('camera') }} Relatório de Obras</a>
+    <a class="sb-item {% if request.path == url_for('atas.index') %}ativo{% endif %}"
+       href="{{ url_for('atas.index') }}">{{ icone('clipboard') }} Assistente de Atas</a>
+
+    {% if current_user.is_admin %}
+    <div class="sb-sec">Administração</div>
+    <a class="sb-item {% if request.path == url_for('auth.admin_usuarios') %}ativo{% endif %}"
+       href="{{ url_for('auth.admin_usuarios') }}">{{ icone('id') }} Usuários</a>
+    <a class="sb-item {% if request.path == url_for('auth.admin_atividades') %}ativo{% endif %}"
+       href="{{ url_for('auth.admin_atividades') }}">{{ icone('doc') }} Atividades</a>
+    {% endif %}
+  </nav>
+
+  <div class="sb-rodape">
+    <a class="sb-user" href="{{ url_for('auth.conta') }}">
+      <span class="sb-avatar">{{ (current_user.nome or current_user.email)[0] }}</span>
+      <span class="sb-user-info">
+        <span class="sb-user-nome">{{ current_user.nome or 'Minha conta' }}</span>
+        <span class="sb-email" title="{{ current_user.email }}">{{ current_user.email }}</span>
+      </span>
+    </a>
+    <a class="sb-sair" href="{{ url_for('auth.logout') }}" title="Sair">{{ icone('logout') }}</a>
+  </div>
+</aside>
+{% endif %}
+
+<main class="conteudo">
+  <div class="container">
     {% block content %}{% endblock %}
-  </main>
+  </div>
+</main>
 
-  {% block scripts %}{% endblock %}
+{% block scripts %}{% endblock %}
 </body>
 </html>
