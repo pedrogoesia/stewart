@@ -888,3 +888,23 @@ body.harness-ativa .harness-glow { display: none; }
 .perm-cel { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .perm-cel .perm-item { white-space: nowrap; font-size: .85rem; }
 .perm-cel .btn { margin-top: 2px; }
+
+/* ----------------------------------------------------------- UX no celular */
+/* Trava o deslocamento lateral da página inteira. "clip" não cria um
+   scroll container, então os sticky (topo mobile, botão de gerar ata)
+   continuam funcionando; "hidden" fica como fallback p/ navegadores velhos. */
+html, body { overflow-x: hidden; overflow-x: clip; }
+
+@media (max-width: 768px) {
+  /* iOS dá zoom automático ao focar campos com fonte < 16px. Os inputs
+     herdavam a fonte dos labels (~13px) — fixa em 16px no celular. */
+  input, select, textarea, .acao-senha input { font-size: 16px; }
+}
+
+@media (max-width: 560px) {
+  /* Botões de ação principal ocupam a linha toda (alvo de toque maior). */
+  .panel form .btn-primary { width: 100%; }
+  .check-inline { padding: 4px 0; }
+  /* Formulário de redefinir senha na tabela: empilha sem vazar. */
+  .acao-senha { flex-wrap: wrap; }
+}
