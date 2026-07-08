@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Assistente de Atas — Stewart{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('auth.home') }}">← Início</a>
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Ferramenta</span>
+    <h1>Assistente de Atas</h1>
+    <p class="muted">Preencha os campos e gere a ata em Word, no padrão da empresa.
+      Você pode digitar tudo manualmente ou colar a transcrição da reunião
+      (Gravador do iPhone) / suas anotações e usar o preenchimento automático.</p>
+  </div>
+</div>
+
+<div class="ata-wrap">
+
+  <!-- TRANSCRIÇÃO -->
+  <div class="panel">
+    <h3>Transcrição ou anotações</h3>
+    <p class="muted ata-hint">Cole aqui o texto da reunião. O preenchimento por IA tenta
+      identificar cliente, data, local, participantes e assuntos — você revisa tudo antes de gerar.</p>
+    <textarea id="fonte" class="ata-fonte" placeholder="Cole a transcrição do áudio ou suas anotações da reunião..."></textarea>
+    <div class="ata-ia-row">
+      <button class="btn btn-ghost" id="btnIA" type="button">✨ Preencher com IA</button>
+      <span class="ata-status" id="iaStatus"></span>
+    </div>
+  </div>
+
+  <!-- IDENTIFICAÇÃO -->
+  <div class="panel">
+    <h3>Identificação</h3>
+    <div class="ata-grid-2">
+      <div class="ata-field ata-full"><label>Cliente</label><input id="cliente" placeholder="Ex.: Angelica e Carlos"></div>
+      <div class="ata-field"><label>Obra (código/nome)</label><input id="obra" placeholder="Ex.: RES-0142"></div>
+      <div class="ata-field"><label>Nº da ata</label><input id="numero" placeholder="Ex.: 00"></div>
+      <div class="ata-field ata-full"><label>Endereço</label><input id="endereco" placeholder="Endereço da obra"></div>
+      <div class="ata-field"><label>Data</label><input id="data" placeholder="Ex.: 26/06/2026"></div>
+      <div class="ata-field"><label>Local</label><input id="local" placeholder="Ex.: Canteiro de obras"></div>
+      <div class="ata-field ata-full"><label>Prazo de aprovação</label><input id="prazo_aprovacao" placeholder="Ex.: 2 (dois) dias úteis"></div>
+    </div>
+  </div>
+
+  <!-- PARTICIPANTES -->
+  <div class="panel">
+    <h3>Participantes</h3>
+    <p class="muted ata-hint">Quem participou da reunião — nome e empresa ou função.</p>
+    <div id="participantes"></div>
+    <button class="btn btn-ghost btn-sm" id="addPart" type="button">+ Adicionar participante</button>
+  </div>
+
+  <!-- ASSUNTOS -->
+  <div class="panel">
+    <h3>Pauta e deliberações</h3>
+    <p class="muted ata-hint">Cada assunto tratado, com o que foi decidido, o responsável, o prazo e o status.</p>
+    <div id="assuntos"></div>
+    <button class="btn btn-ghost btn-sm" id="addTopic" type="button">+ Adicionar assunto</button>
+  </div>
+
+  <div class="ata-actions">
+    <button class="btn btn-primary" id="btnGerar" type="button">Gerar ata (.docx)</button>
+    <span class="ata-status" id="genStatus"></span>
+  </div>
+
+  <p class="ata-footnote">O arquivo é gerado no seu dispositivo e baixado automaticamente.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>window.ATA_LOGO_URL = "{{ url_for('static', filename='img/logo-ata.png') }}";</script>
+<script src="{{ asset('js/jszip.min.js') }}"></script>
+<script src="{{ asset('js/atas-docx.js') }}"></script>
+<script src="{{ asset('js/atas.js') }}"></script>
+{% endblock %}

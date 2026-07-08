@@ -1,33 +1,24 @@
 """Ferramenta: Assistente de Atas de Reunião.
 
-Serve o gerador de atas (HTML autocontido, monta o .docx com JSZip no
-navegador). O arquivo vive em tools/assistente_atas.html e é servido atrás do
-login — por isso NÃO fica em static/ (que é público). O JSZip é servido
-localmente (static/js), então funciona offline e respeita a CSP do portal
-(script-src 'self').
+Página integrada ao layout do portal (templates/atas.html). O .docx é montado
+no navegador (static/js/atas-docx.js + JSZip) e baixado direto — nada da ata
+passa pelo servidor, exceto o preenchimento por IA: o botão "Preencher com IA"
+envia a transcrição para POST /atas/ia, que extrai os campos via OpenAI (mesma
+chave do editor de fotos).
 
-O botão "Preencher com IA" envia a transcrição para POST /atas/ia, que extrai
-os campos via OpenAI (mesma chave do editor de fotos). O token CSRF é injetado
-no HTML na hora de servir (placeholder __CSRF_TOKEN__).
-
-Mantido em sincronia com o gerador do Claude (gerar_ata_docx.py): mudança de
-layout (cores, margens, campos) deve ser aplicada nos dois.
+O layout do DOCUMENTO Word (cores, margens, campos) vive em atas-docx.js e é
+mantido em sincronia com o gerador do Claude (gerar_ata_docx.py): mudança lá
+deve ser aplicada nos dois.
 """
 
-import os
-
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required
-from flask_wtf.csrf import generate_csrf
 
 from ai_edit import extrair_dados_ata, ia_disponivel
 from extensions import limiter
 from models import registrar_atividade
 
 bp = Blueprint("atas", __name__)
-
-_TOOL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                          "tools", "assistente_atas.html")
 
 # Limite de tamanho da transcrição enviada à IA (caracteres).
 _MAX_TEXTO = 60_000
@@ -37,10 +28,7 @@ _MAX_TEXTO = 60_000
 @login_required
 def index():
     registrar_atividade("atas_abriu", "Abriu o Assistente de Atas")
-    with open(_TOOL_PATH, encoding="utf-8") as f:
-        html = f.read()
-    html = html.replace("__CSRF_TOKEN__", generate_csrf())
-    return Response(html, mimetype="text/html")
+    return render_template("atas.html")
 
 
 @bp.route("/atas/ia", methods=["POST"])

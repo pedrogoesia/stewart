@@ -102,7 +102,8 @@ def extrair_dados_ata(texto):
             "pip install -r requirements.txt") from exc
 
     model = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini")
-    client = OpenAI(api_key=api_key)
+    # timeout: sem ele o SDK espera até 10 min e o usuário fica sem resposta.
+    client = OpenAI(api_key=api_key, timeout=60)
     try:
         resposta = client.chat.completions.create(
             model=model,

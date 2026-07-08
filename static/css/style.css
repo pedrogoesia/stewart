@@ -784,3 +784,47 @@ body.harness-ativa .harness-glow { display: none; }
 }
 .perm-user-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 .perm-form .perm-grid { margin-bottom: 12px; }
+
+/* ----------------------------------------------------------- Assistente de Atas */
+.ata-wrap { max-width: 760px; }
+.ata-hint { font-size: .85rem; margin: -8px 0 14px; }
+.ata-fonte { min-height: 140px; resize: vertical; }
+.ata-ia-row { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+
+.ata-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ata-grid-3 { display: grid; grid-template-columns: 1.4fr 1fr .9fr; gap: 10px; }
+.ata-full { grid-column: 1 / -1; }
+@media (max-width: 560px) { .ata-grid-2, .ata-grid-3 { grid-template-columns: 1fr; } }
+
+.ata-field label {
+  display: block; font-size: .8rem; font-weight: 600;
+  color: var(--muted); margin: 0 0 5px;
+}
+.ata-field textarea { min-height: 80px; resize: vertical; }
+
+.ata-row {
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px; margin-bottom: 10px; background: var(--bg);
+}
+.ata-row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.ata-row-n { font-weight: 700; color: var(--red); font-size: .85rem; }
+.ata-row .ata-field { margin-bottom: 10px; }
+.ata-row .ata-grid-2 .ata-field, .ata-row .ata-grid-3 .ata-field { margin-bottom: 0; }
+.ata-x {
+  background: transparent; border: none; color: var(--muted);
+  padding: 4px 8px; font-size: 18px; line-height: 1; cursor: pointer;
+}
+.ata-x:hover { color: var(--red); }
+
+.ata-actions {
+  position: sticky; bottom: 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  background: linear-gradient(180deg, rgba(243, 241, 236, 0), var(--bg) 28%);
+  padding: 16px 0 8px; margin-top: 4px;
+}
+.ata-actions .btn-primary { flex: 1; min-width: 200px; padding: 13px 18px; font-size: 1rem; }
+
+.ata-status { font-size: .85rem; color: var(--muted); min-height: 18px; }
+.ata-status.err { color: var(--red); }
+.ata-status.ok { color: #1f7a4d; }
+
+.ata-footnote { color: var(--muted); font-size: .8rem; text-align: center; margin-top: 22px; }
