@@ -17,8 +17,8 @@ function partRow(p = {}) {
     <div class="ata-row-head"><span class="ata-row-n">Participante</span>
       <button class="ata-x" type="button" title="Remover">×</button></div>
     <div class="ata-grid-2">
-      <div class="ata-field"><label>Nome</label><input class="p-nome" placeholder="Nome completo"></div>
-      <div class="ata-field"><label>Empresa / Função</label><input class="p-emp" placeholder="Ex.: Cliente, Arquiteta, Construtora"></div>
+      <div class="ata-field"><label>Nome</label><input type="text" class="p-nome" placeholder="Nome completo"></div>
+      <div class="ata-field"><label>Empresa / Função</label><input type="text" class="p-emp" placeholder="Ex.: Cliente, Arquiteta, Construtora"></div>
     </div>`;
   div.querySelector(".p-nome").value = p.nome || "";
   div.querySelector(".p-emp").value = p.empresa || "";
@@ -32,11 +32,11 @@ function topicRow(a = {}) {
   div.innerHTML = `
     <div class="ata-row-head"><span class="ata-row-n">Assunto</span>
       <button class="ata-x" type="button" title="Remover">×</button></div>
-    <div class="ata-field"><label>Título</label><input class="t-tit" placeholder="Ex.: Revestimento dos banheiros"></div>
+    <div class="ata-field"><label>Título</label><input type="text" class="t-tit" placeholder="Ex.: Revestimento dos banheiros"></div>
     <div class="ata-field"><label>Descrição / decisão</label><textarea class="t-desc" placeholder="O que foi tratado e decidido"></textarea></div>
     <div class="ata-grid-3">
-      <div class="ata-field"><label>Responsável</label><input class="t-resp" placeholder="Quem"></div>
-      <div class="ata-field"><label>Prazo</label><input class="t-prazo" placeholder="Ex.: 03/07/2026"></div>
+      <div class="ata-field"><label>Responsável</label><input type="text" class="t-resp" placeholder="Quem"></div>
+      <div class="ata-field"><label>Prazo</label><input type="text" class="t-prazo" placeholder="Ex.: 03/07/2026"></div>
       <div class="ata-field"><label>Status</label><select class="t-status">
         <option>Pendente</option><option>Em andamento</option><option>Concluído</option></select></div>
     </div>`;
