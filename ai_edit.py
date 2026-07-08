@@ -78,8 +78,16 @@ _ATA_INSTRUCOES = (
     '"participantes":[{"nome":"","empresa":""}],'
     '"assuntos":[{"titulo":"","descricao":"","responsavel":"","prazo":"",'
     '"status":"Pendente"}]}. '
-    'Use "" quando a informação não estiver no texto. Não invente. '
-    "Descrições objetivas e concisas. Português do Brasil.")
+    'Use "" quando a informação não estiver no texto. Não invente fatos '
+    "novos, mas ESCREVA TUDO EM PORTUGUÊS CORRETO: transcrições de áudio "
+    "vêm com erros de digitação, ortografia e acentuação — corrija-os "
+    '(ex.: "Arquitetta" → "Arquiteta", "eletrecista" → "eletricista", '
+    '"reuniao" → "reunião"). Capitalize nomes próprios e cargos '
+    'adequadamente. No campo "empresa" de cada participante, coloque a '
+    "empresa OU a função/papel citado no texto (ex.: Cliente, Arquiteta, "
+    "Eletricista da construtora) — não deixe vazio se o texto informar. "
+    "Descrições objetivas e concisas, em frases completas. "
+    "Português do Brasil.")
 
 
 def extrair_dados_ata(texto):
