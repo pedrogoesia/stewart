@@ -94,8 +94,8 @@
     b += para(run("ATA DE REUNIÃO", { b: true, sz: 18, color: GRAFITE }), { after: 20 });
     const obra = d.obra || "[a confirmar]";
     const num = String(d.numero || "00").padStart(2, "0");
-    b += para(run("Obra " + obra, { b: true, sz: 10, color: RED }) +
-      run("      Ata nº " + num + "      Revisão 00", { sz: 10, color: CINZA }),
+    b += para(run("Obra " + obra, { b: true, sz: 9, color: RED }) +
+      run("      Ata nº " + num + "      Revisão 00", { sz: 9, color: CINZA }),
       { before: 20, after: 200 });
 
     // identificação
@@ -130,12 +130,12 @@
     (d.assuntos || []).forEach((a, i) => {
       const bw = [0.9, 16.1];
       const badge = row(
-        cell(para(run(String(i + 1), { b: true, sz: 11, color: WHITE }), { jc: "center" }),
+        cell(para(run(String(i + 1), { b: true, sz: 10, color: WHITE }), { jc: "center" }),
           { w: bw[0], fill: RED, mt: 40, mb: 40, ml: 40, mr: 40 }) +
-        cell(para(run(a.titulo || "[a confirmar]", { b: true, sz: 11 })),
+        cell(para(run(a.titulo || "[a confirmar]", { b: true, sz: 10 })),
           { w: bw[1], mt: 40, mb: 40, ml: 160, mr: 40 }));
       b += table(badge, bw, { noBorders: true });
-      b += para(run(a.descricao || "[a confirmar]", { sz: 10, color: a.descricao ? GRAFITE : CINZA }),
+      b += para(run(a.descricao || "[a confirmar]", { sz: 9, color: a.descricao ? GRAFITE : CINZA }),
         { indent: 0.9, before: 60, after: 60 });
       b += para(
         run("Responsável: ", { b: true, sz: 8.5, color: CINZA }) +
