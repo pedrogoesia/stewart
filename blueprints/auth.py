@@ -38,10 +38,13 @@ def login():
         senha = request.form.get("senha") or ""
         usuario = Usuario.query.filter_by(email=email).first()
         if usuario and usuario.conferir_senha(senha):
-            # "Lembrar de mim": marcado → sessão de 7 dias (PERMANENT_SESSION_
-            # LIFETIME); desmarcado → expira ao fechar o navegador.
-            session.permanent = bool(request.form.get("lembrar"))
-            login_user(usuario)
+            # "Lembrar de mim": marcado → sessão permanente + cookie "remember"
+            # do Flask-Login (REMEMBER_COOKIE_DURATION), que reloga sozinho
+            # mesmo depois que a sessão expira. Desmarcado → a sessão acaba ao
+            # fechar o navegador.
+            lembrar = bool(request.form.get("lembrar"))
+            session.permanent = lembrar
+            login_user(usuario, remember=lembrar)
             registrar_atividade("login", "Entrou no sistema")
             destino = destino_seguro(request.args.get("next"))
             return redirect(destino or _pagina_inicial())

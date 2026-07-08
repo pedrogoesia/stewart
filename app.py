@@ -50,6 +50,11 @@ def create_app():
         SESSION_COOKIE_SAMESITE="Lax",       # não vai a outros sites
         SESSION_COOKIE_SECURE=IS_PRODUCTION,  # só HTTPS em produção
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+        # Cookie "lembrar de mim" (Flask-Login): reloga sozinho por 30 dias.
+        REMEMBER_COOKIE_DURATION=timedelta(days=30),
+        REMEMBER_COOKIE_HTTPONLY=True,
+        REMEMBER_COOKIE_SECURE=IS_PRODUCTION,
+        REMEMBER_COOKIE_SAMESITE="Lax",
         WTF_CSRF_TIME_LIMIT=None,            # token de CSRF dura a sessão
     )
 

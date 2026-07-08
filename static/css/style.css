@@ -857,6 +857,8 @@ body.harness-ativa .harness-glow { display: none; }
   animation: login-entrada .7s cubic-bezier(.16, 1, .3, 1) .1s backwards;
 }
 .login-logo { height: 34px; width: auto; display: block; margin-bottom: 18px; }
+.login-titulo { text-align: center; }
+.login-sub { text-align: center; font-size: .82rem; }
 
 /* "Lembrar de mim": checkbox em linha (o label padrão do cartão é em coluna) */
 .login-card .login-lembrar {
