@@ -63,7 +63,8 @@
     </div>
 
     <label class="dropzone">
-      <input type="file" accept="image/*" multiple capture="environment"
+      <!-- Sem o atributo "capture": o celular oferece galeria OU câmera. -->
+      <input type="file" accept="image/*" multiple
              onchange="enviarFotos(this, {{ c.id }})" hidden>
       <span class="dropzone-inner">📷 Adicionar fotos &nbsp;<small>(toque para tirar foto ou escolher da galeria)</small></span>
     </label>

@@ -53,7 +53,7 @@ function comodoTemplate(id, nome) {
       </div>
     </div>
     <label class="dropzone">
-      <input type="file" accept="image/*" multiple capture="environment"
+      <input type="file" accept="image/*" multiple
              onchange="enviarFotos(this, ${id})" hidden>
       <span class="dropzone-inner">📷 Adicionar fotos &nbsp;<small>(toque para tirar foto ou escolher da galeria)</small></span>
     </label>
