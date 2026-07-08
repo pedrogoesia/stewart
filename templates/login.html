@@ -2,8 +2,18 @@
 {% block title %}Entrar — Stewart{% endblock %}
 
 {% block content %}
-<div class="auth-wrap">
-  <div class="auth-card">
+<!-- Fundo em vídeo (decorativo): mudo, em loop e sem áudio para tocar sozinho
+     também no celular. O poster pinta a tela na hora enquanto o vídeo baixa. -->
+<div class="login-bg" aria-hidden="true">
+  <video autoplay muted loop playsinline preload="auto"
+         poster="{{ url_for('static', filename='video/login-bg.jpg') }}">
+    <source src="{{ url_for('static', filename='video/login-bg.mp4') }}" type="video/mp4">
+  </video>
+</div>
+
+<div class="auth-wrap login-wrap">
+  <div class="auth-card login-card">
+    <img class="login-logo" src="{{ url_for('static', filename='img/logo.png') }}" alt="Stewart Engenharia">
     <h1>Entrar</h1>
     <p class="muted">Acesse com seu email e senha para ver suas obras.</p>
 
