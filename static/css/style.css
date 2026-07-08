@@ -883,3 +883,8 @@ body.harness-ativa .harness-glow { display: none; }
   .login-bg video { display: none; }
   .login-bg { background: #14120f url("../video/login-bg.jpg") center/cover no-repeat; }
 }
+
+/* Ferramentas por usuário (célula da tabela de usuários) */
+.perm-cel { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.perm-cel .perm-item { white-space: nowrap; font-size: .85rem; }
+.perm-cel .btn { margin-top: 2px; }

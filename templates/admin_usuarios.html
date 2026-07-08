@@ -28,6 +28,18 @@
         <input type="checkbox" name="is_admin"> Administrador
       </label>
     </div>
+    <fieldset class="perm-fieldset">
+      <legend>Ferramentas liberadas</legend>
+      <div class="perm-grid">
+        {% for slug, nome in ferramentas.items() %}
+        <label class="perm-item">
+          <input type="checkbox" name="ferramentas" value="{{ slug }}" checked> {{ nome }}
+        </label>
+        {% endfor %}
+      </div>
+      <p class="muted perm-nota">Administradores têm acesso a todas as ferramentas,
+        independentemente da seleção.</p>
+    </fieldset>
     <button class="btn btn-primary" type="submit">+ Criar usuário</button>
   </form>
 </section>
@@ -38,7 +50,7 @@
   <div class="tabela-wrap">
     <table class="tabela">
       <thead>
-        <tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Obras</th><th>Ações</th></tr>
+        <tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Ferramentas</th><th>Obras</th><th>Ações</th></tr>
       </thead>
       <tbody>
         {% for u in usuarios %}
@@ -46,6 +58,23 @@
           <td>{{ u.nome or '—' }}</td>
           <td>{{ u.email }}</td>
           <td>{% if u.is_admin %}<span class="badge badge-admin">Admin</span>{% else %}Usuário{% endif %}</td>
+          <td>
+            {% if u.is_admin %}
+            <span class="muted">Todas (admin)</span>
+            {% else %}
+            <form method="post" action="{{ url_for('auth.admin_ferramentas', user_id=u.id) }}"
+                  class="perm-cel">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              {% for slug, nome in ferramentas.items() %}
+              <label class="perm-item">
+                <input type="checkbox" name="ferramentas" value="{{ slug }}"
+                       {% if u.pode_ver_ferramenta(slug) %}checked{% endif %}> {{ nome }}
+              </label>
+              {% endfor %}
+              <button class="btn btn-sm btn-ghost" type="submit">Salvar</button>
+            </form>
+            {% endif %}
+          </td>
           <td>{{ u.obras|length }}</td>
           <td class="acoes-cel">
             <form method="post" action="{{ url_for('auth.admin_redefinir_senha', user_id=u.id) }}"

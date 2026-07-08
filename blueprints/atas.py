@@ -11,14 +11,24 @@ mantido em sincronia com o gerador do Claude (gerar_ata_docx.py): mudança lá
 deve ser aplicada nos dois.
 """
 
-from flask import Blueprint, jsonify, render_template, request
-from flask_login import login_required
+from flask import (Blueprint, abort, jsonify, redirect, render_template,
+                   request, url_for)
+from flask_login import current_user, login_required
 
 from ai_edit import extrair_dados_ata, ia_disponivel
 from extensions import limiter
 from models import registrar_atividade
 
 bp = Blueprint("atas", __name__)
+
+
+@bp.before_request
+def _exige_acesso():
+    """Exige login e que o usuário tenha a ferramenta 'Atas' liberada."""
+    if not current_user.is_authenticated:
+        return redirect(url_for("auth.login", next=request.url))
+    if not current_user.pode_ver_ferramenta("atas"):
+        abort(403)
 
 # Limite de tamanho da transcrição enviada à IA (caracteres).
 _MAX_TEXTO = 60_000

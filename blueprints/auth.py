@@ -9,17 +9,24 @@ from flask_login import (current_user, login_required, login_user,
 
 from config import SENHA_MIN
 from extensions import db, limiter
-from models import Usuario, registrar_atividade, senha_fraca
+from models import (FERRAMENTAS, Usuario, registrar_atividade, senha_fraca)
 from utils import destino_seguro, remover_arquivos_da_obra
 
 bp = Blueprint("auth", __name__)
 
 
+# Página inicial de cada ferramenta (para o redirecionamento pós-login).
+_INDEX_FERRAMENTA = {"relatorios": "relatorios.index", "atas": "atas.index"}
+
+
 def _pagina_inicial():
-    """Para onde mandar o usuário após o login: admin → Usuários; demais → ferramenta."""
+    """Após o login: admin → Usuários; demais → primeira ferramenta liberada."""
     if current_user.is_admin:
         return url_for("auth.admin_usuarios")
-    return url_for("relatorios.index")
+    for slug in FERRAMENTAS:
+        if current_user.pode_ver_ferramenta(slug):
+            return url_for(_INDEX_FERRAMENTA[slug])
+    return url_for("auth.conta")   # nenhuma ferramenta liberada
 
 
 @bp.route("/")
@@ -106,7 +113,8 @@ def _exige_admin():
 def admin_usuarios():
     _exige_admin()
     usuarios = Usuario.query.order_by(Usuario.id).all()
-    return render_template("admin_usuarios.html", usuarios=usuarios)
+    return render_template("admin_usuarios.html", usuarios=usuarios,
+                           ferramentas=FERRAMENTAS)
 
 
 @bp.route("/admin/atividades")
@@ -146,10 +154,26 @@ def admin_criar_usuario():
     usuario = Usuario(email=email, nome=nome, is_admin=is_admin,
                       criado_em=datetime.now().isoformat())
     usuario.definir_senha(senha)
+    usuario.definir_ferramentas(request.form.getlist("ferramentas"))
     db.session.add(usuario)
     db.session.commit()
     registrar_atividade("usuario_criado", f"Criou o usuário {email}")
     return _admin_msg(f"Usuário {email} criado.")
+
+
+@bp.route("/admin/usuarios/<int:user_id>/ferramentas", methods=["POST"])
+@login_required
+def admin_ferramentas(user_id):
+    _exige_admin()
+    usuario = db.session.get(Usuario, user_id) or abort(404)
+    usuario.definir_ferramentas(request.form.getlist("ferramentas"))
+    db.session.commit()
+    nomes = [FERRAMENTAS[s] for s in FERRAMENTAS
+             if usuario.pode_ver_ferramenta(s)]
+    registrar_atividade(
+        "ferramentas_alteradas",
+        f"Ferramentas de {usuario.email}: {', '.join(nomes) or 'nenhuma'}")
+    return _admin_msg(f"Ferramentas de {usuario.email} atualizadas.")
 
 
 @bp.route("/admin/usuarios/<int:user_id>/senha", methods=["POST"])
@@ -186,4 +210,4 @@ def _admin_msg(msg, erro=False):
     usuarios = Usuario.query.order_by(Usuario.id).all()
     chave = "erro" if erro else "ok"
     return render_template("admin_usuarios.html", usuarios=usuarios,
-                           **{chave: msg})
+                           ferramentas=FERRAMENTAS, **{chave: msg})

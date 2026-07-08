@@ -30,10 +30,14 @@
 
   <nav class="sb-nav">
     <div class="sb-sec">Ferramentas</div>
+    {% if current_user.pode_ver_ferramenta('relatorios') %}
     <a class="sb-item {% if request.path == url_for('relatorios.index') %}ativo{% endif %}"
        href="{{ url_for('relatorios.index') }}">{{ icone('camera') }} Relatório de Obras</a>
+    {% endif %}
+    {% if current_user.pode_ver_ferramenta('atas') %}
     <a class="sb-item {% if request.path == url_for('atas.index') %}ativo{% endif %}"
        href="{{ url_for('atas.index') }}">{{ icone('clipboard') }} Assistente de Atas</a>
+    {% endif %}
 
     {% if current_user.is_admin %}
     <div class="sb-sec">Administração</div>

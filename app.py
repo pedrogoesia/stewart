@@ -151,8 +151,33 @@ def init_db():
     from models import Usuario
     with app.app_context():
         db.create_all()
+        _migrar_colunas()
         _criar_admin_inicial(Usuario)
         _resetar_admin_se_pedido(Usuario)
+
+
+def _migrar_colunas():
+    """Migrações leves: create_all() não altera tabelas que já existem.
+
+    Adiciona a coluna 'ferramentas' (permissão por ferramenta) em bancos
+    criados antes dela e libera todas as ferramentas para as contas antigas.
+    """
+    from sqlalchemy import text
+    from models import TODAS_FERRAMENTAS
+    try:
+        db.session.execute(text(
+            "ALTER TABLE usuarios ADD COLUMN ferramentas VARCHAR(255)"))
+        db.session.commit()
+        print("[MIGRACAO] Coluna usuarios.ferramentas criada.")
+    except Exception:
+        db.session.rollback()   # coluna já existe
+    try:
+        db.session.execute(
+            text("UPDATE usuarios SET ferramentas = :t WHERE ferramentas IS NULL"),
+            {"t": TODAS_FERRAMENTAS})
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _resetar_admin_se_pedido(Usuario):

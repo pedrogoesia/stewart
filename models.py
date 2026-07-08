@@ -17,6 +17,15 @@ from extensions import db, login_manager
 # ---------------------------------------------------------------------------
 # Usuários (núcleo da plataforma)
 # ---------------------------------------------------------------------------
+# Catálogo de ferramentas da plataforma: slug -> nome exibido. Ao criar uma
+# ferramenta nova, inclua-a aqui e proteja o blueprint com pode_ver_ferramenta.
+FERRAMENTAS = {
+    "relatorios": "Relatório de Obras",
+    "atas": "Assistente de Atas",
+}
+TODAS_FERRAMENTAS = ",".join(FERRAMENTAS)
+
+
 class Usuario(UserMixin, db.Model):
     __tablename__ = "usuarios"
     id = db.Column(db.Integer, primary_key=True)
@@ -25,6 +34,9 @@ class Usuario(UserMixin, db.Model):
     senha_hash = db.Column(db.String(255), nullable=False)
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     criado_em = db.Column(db.String(40), nullable=False)
+    # Slugs (separados por vírgula) das ferramentas liberadas para o usuário.
+    # NULL (contas antigas, antes da migração) equivale a todas liberadas.
+    ferramentas = db.Column(db.String(255), default=TODAS_FERRAMENTAS)
 
     obras = db.relationship("Obra", backref="usuario",
                             cascade="all, delete-orphan")
@@ -35,9 +47,18 @@ class Usuario(UserMixin, db.Model):
     def conferir_senha(self, senha):
         return check_password_hash(self.senha_hash, senha or "")
 
+    def ferramentas_liberadas(self):
+        """Slugs que este usuário pode usar (admin vê tudo)."""
+        if self.is_admin or self.ferramentas is None:
+            return set(FERRAMENTAS)
+        return {s for s in self.ferramentas.split(",") if s in FERRAMENTAS}
+
+    def definir_ferramentas(self, slugs):
+        """Grava a lista de ferramentas, ignorando slugs desconhecidos."""
+        self.ferramentas = ",".join(s for s in FERRAMENTAS if s in set(slugs))
+
     def pode_ver_ferramenta(self, slug):
-        """Toda pessoa logada pode usar as ferramentas disponíveis."""
-        return True
+        return slug in self.ferramentas_liberadas()
 
 
 # ---------------------------------------------------------------------------
