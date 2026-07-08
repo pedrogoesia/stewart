@@ -858,6 +858,19 @@ body.harness-ativa .harness-glow { display: none; }
 }
 .login-logo { height: 34px; width: auto; display: block; margin-bottom: 18px; }
 
+/* "Lembrar de mim": checkbox em linha (o label padrão do cartão é em coluna) */
+.login-card .login-lembrar {
+  flex-direction: row; align-items: center; gap: 8px;
+  font-size: .85rem; cursor: pointer; margin: 0 0 16px;
+}
+.login-lembrar input { width: auto; margin: 0; accent-color: var(--red); }
+
+/* Aviso discreto no rodapé do cartão */
+.login-rodape {
+  text-align: center; color: var(--muted); font-size: .72rem;
+  opacity: .8; margin: 18px 0 0;
+}
+
 @keyframes login-entrada {
   from { opacity: 0; transform: translateY(26px) scale(.97); }
   to   { opacity: 1; transform: none; }

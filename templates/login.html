@@ -15,7 +15,7 @@
   <div class="auth-card login-card">
     <img class="login-logo" src="{{ url_for('static', filename='img/logo.png') }}" alt="Stewart Engenharia">
     <h1>Entrar</h1>
-    <p class="muted">Acesse com seu email e senha para ver suas obras.</p>
+    <p class="muted">Entre com seu email e senha para acessar as ferramentas.</p>
 
     {% if erro %}<p class="auth-erro">⚠️ {{ erro }}</p>{% endif %}
 
@@ -28,8 +28,14 @@
       <label>Senha
         <input type="password" name="senha" required autocomplete="current-password">
       </label>
+      <label class="login-lembrar">
+        <input type="checkbox" name="lembrar" value="1" checked>
+        Lembrar de mim por 7 dias
+      </label>
       <button class="btn btn-primary auth-submit" type="submit">Entrar</button>
     </form>
+
+    <p class="login-rodape">Acesso restrito à equipe da Stewart Engenharia</p>
   </div>
 </div>
 {% endblock %}

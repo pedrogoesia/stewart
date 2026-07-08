@@ -38,7 +38,9 @@ def login():
         senha = request.form.get("senha") or ""
         usuario = Usuario.query.filter_by(email=email).first()
         if usuario and usuario.conferir_senha(senha):
-            session.permanent = True
+            # "Lembrar de mim": marcado → sessão de 7 dias (PERMANENT_SESSION_
+            # LIFETIME); desmarcado → expira ao fechar o navegador.
+            session.permanent = bool(request.form.get("lembrar"))
             login_user(usuario)
             registrar_atividade("login", "Entrou no sistema")
             destino = destino_seguro(request.args.get("next"))
