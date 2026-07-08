@@ -1,15 +1,20 @@
 """
-Edição de fotos por prompt usando a OpenAI (modelo de imagem mais recente,
-gpt-image-1 — o mesmo do ChatGPT). Recebe uma imagem + uma instrução em texto
-(ex.: "remova a vassoura desta foto") e devolve os bytes (JPEG) da nova imagem.
+Integrações com a OpenAI usadas pelas ferramentas do portal:
+
+- Edição de fotos por prompt (gpt-image-1, o mesmo do ChatGPT): recebe uma
+  imagem + uma instrução (ex.: "remova a vassoura desta foto") e devolve os
+  bytes (JPEG) da nova imagem.
+- Extração de dados de ata: recebe a transcrição/anotações da reunião e
+  devolve os campos estruturados (cliente, participantes, assuntos...).
 
 A chave de API é lida da variável de ambiente OPENAI_API_KEY (nunca é gravada
-no código nem no repositório). O modelo pode ser trocado pela variável
-OPENAI_IMAGE_MODEL.
+no código nem no repositório). Os modelos podem ser trocados pelas variáveis
+OPENAI_IMAGE_MODEL e OPENAI_TEXT_MODEL.
 """
 
 import base64
 import io
+import json
 import os
 
 from PIL import Image
@@ -64,6 +69,57 @@ def editar_imagem(caminho_entrada, prompt):
         raise RuntimeError("A OpenAI não retornou uma imagem editada. "
                            "Tente reformular a instrução.")
     return _para_jpeg(base64.b64decode(b64))
+
+
+_ATA_INSTRUCOES = (
+    "Você extrai dados de reuniões de obra e responde APENAS com um objeto "
+    "JSON válido, sem texto antes ou depois, sem markdown. Esquema: "
+    '{"cliente":"","obra":"","numero":"","endereco":"","data":"","local":"",'
+    '"participantes":[{"nome":"","empresa":""}],'
+    '"assuntos":[{"titulo":"","descricao":"","responsavel":"","prazo":"",'
+    '"status":"Pendente"}]}. '
+    'Use "" quando a informação não estiver no texto. Não invente. '
+    "Descrições objetivas e concisas. Português do Brasil.")
+
+
+def extrair_dados_ata(texto):
+    """Extrai os campos da ata a partir da transcrição/anotações da reunião.
+
+    Retorna um dict no esquema de _ATA_INSTRUCOES. Lança RuntimeError com
+    mensagem amigável em caso de erro.
+    """
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "A chave da OpenAI não está configurada. Crie um arquivo .env "
+            "com OPENAI_API_KEY=suachave (veja o .env.example).")
+
+    try:
+        from openai import OpenAI
+    except ImportError as exc:
+        raise RuntimeError(
+            "Biblioteca da OpenAI não instalada. Rode: "
+            "pip install -r requirements.txt") from exc
+
+    model = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini")
+    client = OpenAI(api_key=api_key)
+    try:
+        resposta = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            max_completion_tokens=1500,
+            messages=[{"role": "system", "content": _ATA_INSTRUCOES},
+                      {"role": "user", "content": texto}],
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(_mensagem_amigavel(exc)) from exc
+
+    conteudo = (resposta.choices[0].message.content or "").strip()
+    try:
+        return json.loads(conteudo)
+    except ValueError as exc:
+        raise RuntimeError("A IA não retornou dados válidos. Tente novamente "
+                           "ou preencha os campos manualmente.") from exc
 
 
 def _mensagem_amigavel(exc):
