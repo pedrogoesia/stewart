@@ -130,9 +130,9 @@
     (d.assuntos || []).forEach((a, i) => {
       const bw = [0.9, 16.1];
       const badge = row(
-        cell(para(run(String(i + 1), { b: true, sz: 10, color: WHITE }), { jc: "center" }),
+        cell(para(run(String(i + 1), { b: true, sz: 11, color: WHITE }), { jc: "center" }),
           { w: bw[0], fill: RED, mt: 40, mb: 40, ml: 40, mr: 40 }) +
-        cell(para(run(a.titulo || "[a confirmar]", { b: true, sz: 10 })),
+        cell(para(run(a.titulo || "[a confirmar]", { b: true, sz: 11 })),
           { w: bw[1], mt: 40, mb: 40, ml: 160, mr: 40 }));
       b += table(badge, bw, { noBorders: true });
       b += para(run(a.descricao || "[a confirmar]", { sz: 9, color: a.descricao ? GRAFITE : CINZA }),
