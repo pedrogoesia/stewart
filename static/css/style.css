@@ -337,7 +337,11 @@ body.arrastando { cursor: grabbing; user-select: none; }
 @media (max-width: 560px) {
   .page-head { flex-direction: column; }
   .field-row { flex-direction: column; align-items: stretch; }
-  .field-row label, .field-row input, .field-row select, .field-row .btn { width: 100%; }
+  /* :not([type=checkbox]): senão o checkbox estica e empurra o texto
+     ("Administrador") para a borda direita da tela. */
+  .field-row label, .field-row input:not([type=checkbox]),
+  .field-row select, .field-row .btn { width: 100%; }
+  .check-inline { justify-content: flex-start; }
   .brand-text { font-size: .95rem; }
 }
 
