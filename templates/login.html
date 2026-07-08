@@ -6,8 +6,8 @@
      também no celular. O poster pinta a tela na hora enquanto o vídeo baixa. -->
 <div class="login-bg" aria-hidden="true">
   <video autoplay muted loop playsinline preload="auto"
-         poster="{{ url_for('static', filename='video/login-bg.jpg') }}">
-    <source src="{{ url_for('static', filename='video/login-bg.mp4') }}" type="video/mp4">
+         poster="{{ asset('video/login-bg.jpg') }}">
+    <source src="{{ asset('video/login-bg.mp4') }}" type="video/mp4">
   </video>
 </div>
 
