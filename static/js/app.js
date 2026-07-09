@@ -37,18 +37,40 @@ async function criarComodo() {
     .scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function comodoTemplate(id, nome) {
+// Seção de fotos avulsas ("sem cômodo"): reaproveita a existente ou cria uma.
+async function criarComodoGeral() {
+  const resp = await postForm(`/obra/${window.OBRA_ID}/comodo-geral`, {});
+  if (!resp.ok) { alert("Não foi possível criar a seção de fotos."); return; }
+  const c = await resp.json();
+
+  let sec = document.querySelector(`[data-comodo-id="${c.id}"]`);
+  if (!sec) {
+    const semComodos = document.getElementById("sem-comodos");
+    if (semComodos) semComodos.remove();
+    document.getElementById("comodos").insertAdjacentHTML("beforeend",
+      comodoTemplate(c.id, c.nome, true));
+    sec = document.querySelector(`[data-comodo-id="${c.id}"]`);
+  }
+  sec.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function comodoTemplate(id, nome, geral = false) {
+  const titulo = geral
+    ? `<h2 class="comodo-nome">📷 Fotos da obra <small class="muted">(sem cômodo)</small></h2>`
+    : `<h2 class="comodo-nome" data-id="${id}">${escapeHtml(nome)}</h2>`;
+  const renomear = geral ? "" :
+    `<button class="btn btn-sm btn-ghost" onclick="renomearComodo(${id})">Renomear</button>`;
   return `
   <section class="comodo" data-comodo-id="${id}">
     <div class="comodo-head">
-      <h2 class="comodo-nome" data-id="${id}">${escapeHtml(nome)}</h2>
+      ${titulo}
       <div class="comodo-tools">
         <span class="badge foto-count">0 foto(s)</span>
         <span class="comodo-mover">
           <button class="btn btn-sm btn-ghost btn-icon" title="Mover para cima" onclick="moverComodo(${id}, -1)">↑</button>
           <button class="btn btn-sm btn-ghost btn-icon" title="Mover para baixo" onclick="moverComodo(${id}, 1)">↓</button>
         </span>
-        <button class="btn btn-sm btn-ghost" onclick="renomearComodo(${id})">Renomear</button>
+        ${renomear}
         <button class="btn btn-sm btn-ghost-danger" onclick="excluirComodo(${id})">Excluir</button>
       </div>
     </div>

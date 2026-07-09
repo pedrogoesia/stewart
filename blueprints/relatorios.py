@@ -26,6 +26,9 @@ from utils import (comodos_com_fotos, foto_abs_path, periodo_label,
 
 bp = Blueprint("relatorios", __name__)
 
+# Nome interno da seção de fotos avulsas (aparece na pasta do .zip).
+NOME_COMODO_GERAL = "Fotos"
+
 
 @bp.before_request
 def _exige_acesso():
@@ -140,6 +143,29 @@ def criar_comodo(obra_id):
     return jsonify({"id": comodo.id, "nome": nome})
 
 
+@bp.route("/obra/<int:obra_id>/comodo-geral", methods=["POST"])
+@login_required
+def criar_comodo_geral(obra_id):
+    """Seção única de fotos avulsas (sem separar por cômodo).
+
+    Se a obra já tem a seção, devolve a existente (não cria duplicada).
+    """
+    obra = obra_do_usuario(obra_id)
+    existente = next((c for c in obra.comodos if c.geral), None)
+    if existente is not None:
+        return jsonify({"id": existente.id, "nome": existente.nome,
+                        "existente": True})
+    ordem = max((c.ordem for c in obra.comodos), default=0) + 1
+    comodo = Comodo(obra_id=obra.id, nome=NOME_COMODO_GERAL, ordem=ordem,
+                    geral=True)
+    db.session.add(comodo)
+    db.session.commit()
+    registrar_atividade("comodo_criado",
+                        f"Adicionou a seção de fotos sem cômodo em '{obra.nome}'",
+                        obra_id=obra.id)
+    return jsonify({"id": comodo.id, "nome": comodo.nome, "existente": False})
+
+
 @bp.route("/obra/<int:obra_id>/comodos/reordenar", methods=["POST"])
 @login_required
 def reordenar_comodos(obra_id):
@@ -159,6 +185,9 @@ def reordenar_comodos(obra_id):
 @login_required
 def renomear_comodo(comodo_id):
     comodo = comodo_do_usuario(comodo_id)
+    if comodo.geral:
+        return jsonify({"erro": "A seção de fotos sem cômodo não pode "
+                        "ser renomeada"}), 400
     nome = (request.form.get("nome") or "").strip()
     if not nome:
         return jsonify({"erro": "Nome inválido"}), 400
@@ -192,7 +221,8 @@ def upload_foto(comodo_id):
 
     descricao = (request.form.get("descricao") or "").strip()
     # Já inicia a legenda com o nome do cômodo, no modelo "Sala - ".
-    if not descricao:
+    # Na seção de fotos avulsas (sem cômodo) a descrição fica livre.
+    if not descricao and not comodo.geral:
         descricao = f"{comodo.nome} - "
     # Caminho relativo guardado SEMPRE com "/" (compatível com URL e Windows).
     rel_dir = f"{comodo.obra_id}/{comodo_id}"
@@ -356,7 +386,8 @@ def baixar_relatorio(obra_id):
                 continue
             fotos.append({"path": path, "descricao": f.descricao})
         if fotos:
-            comodos.append({"nome": grupo["comodo"].nome, "fotos": fotos})
+            comodos.append({"nome": grupo["comodo"].nome,
+                            "geral": grupo["comodo"].geral, "fotos": fotos})
 
     out = io.BytesIO()
     tmp_path = os.path.join(DATA_DIR, f"_relatorio_{uuid.uuid4().hex}.pptx")

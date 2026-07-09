@@ -84,6 +84,9 @@ class Comodo(db.Model):
                         nullable=False, index=True)
     nome = db.Column(db.String(255), nullable=False)
     ordem = db.Column(db.Integer, nullable=False, default=0)
+    # Seção de fotos avulsas ("sem cômodo"): no máximo uma por obra. As fotos
+    # entram no relatório sem o prefixo/sublinhado de nome de cômodo.
+    geral = db.Column(db.Boolean, nullable=False, default=False)
 
     fotos = db.relationship("Foto", backref="comodo",
                             cascade="all, delete-orphan")

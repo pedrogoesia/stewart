@@ -42,6 +42,9 @@
     <input type="text" id="novo-comodo" placeholder="Nome do cômodo (ex.: Sala, Cozinha, Banheiro)">
     <button class="btn btn-primary" onclick="criarComodo()">+ Adicionar cômodo</button>
   </form>
+  <p class="muted">Não quer separar por cômodo?
+    <button class="btn btn-ghost btn-sm" onclick="criarComodoGeral()">📷 Adicionar fotos sem cômodo</button>
+  </p>
 </section>
 
 <!-- Lista de cômodos -->
@@ -50,14 +53,20 @@
   {% set c = grupo.comodo %}
   <section class="comodo" data-comodo-id="{{ c.id }}">
     <div class="comodo-head">
+      {% if c.geral %}
+      <h2 class="comodo-nome">📷 Fotos da obra <small class="muted">(sem cômodo)</small></h2>
+      {% else %}
       <h2 class="comodo-nome" data-id="{{ c.id }}">{{ c.nome }}</h2>
+      {% endif %}
       <div class="comodo-tools">
         <span class="badge foto-count">{{ grupo.fotos|length }} foto(s)</span>
         <span class="comodo-mover">
           <button class="btn btn-sm btn-ghost btn-icon" title="Mover para cima" onclick="moverComodo({{ c.id }}, -1)">↑</button>
           <button class="btn btn-sm btn-ghost btn-icon" title="Mover para baixo" onclick="moverComodo({{ c.id }}, 1)">↓</button>
         </span>
+        {% if not c.geral %}
         <button class="btn btn-sm btn-ghost" onclick="renomearComodo({{ c.id }})">Renomear</button>
+        {% endif %}
         <button class="btn btn-sm btn-ghost-danger" onclick="excluirComodo({{ c.id }})">Excluir</button>
       </div>
     </div>

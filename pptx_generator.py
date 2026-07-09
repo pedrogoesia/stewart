@@ -19,6 +19,7 @@ import copy
 from pptx import Presentation
 from pptx.util import Emu, Pt
 from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
 
@@ -98,6 +99,20 @@ def _set_cover(slide, obra_nome, endereco, periodo_label):
                                       "Helvetica", 9, bold=False)
 
 
+def _encostar_barra_esquerda(prs, slide):
+    """Cola a barra vermelha vertical da capa no canto esquerdo do slide.
+
+    No template ela vem afastada ~3 cm da borda. Identificamos a barra pela
+    geometria (forma que ocupa toda a altura do slide e é estreita), o que é
+    mais robusto do que depender do nome do shape ("Retângulo 10").
+    """
+    for shape in slide.shapes:
+        if (shape.shape_type == MSO_SHAPE_TYPE.AUTO_SHAPE
+                and shape.height >= prs.slide_height
+                and shape.width < Emu(1000000)):
+            shape.left = Emu(0)
+
+
 def _remove_static_month(prs):
     """Remove o texto de mês fixo do layout de fotos para inserirmos o nosso."""
     layout = _find_layout(prs, PHOTO_LAYOUT_NAME)
@@ -143,12 +158,15 @@ def _delete_slide(prs, index):
     prs.slides._sldIdLst.remove(sldId)
 
 
-def _set_caption(slide, idx, text):
+def _set_caption(slide, idx, text, sem_comodo=False):
     """
     Define a legenda da foto com formatação:
       - tudo em negrito;
       - o nome do cômodo (parte antes do primeiro " - ") também sublinhado;
       - primeira letra em maiúscula.
+
+    Com sem_comodo=True (fotos avulsas, sem cômodo) a legenda é texto livre:
+    fica só em negrito, sem o sublinhado do nome do cômodo.
     """
     ph = _placeholder(slide, idx)
     if ph is None:
@@ -161,6 +179,12 @@ def _set_caption(slide, idx, text):
     if not text:
         return
     text = text[0].upper() + text[1:]
+
+    if sem_comodo:
+        r = p.add_run()
+        r.text = text
+        r.font.bold = True
+        return
 
     # O nome do cômodo é a parte antes do primeiro "-". Ele fica sempre em
     # negrito + sublinhado; o restante (incluindo o "-") fica em negrito.
@@ -182,7 +206,8 @@ def _set_caption(slide, idx, text):
         r.font.underline = True
 
 
-def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
+def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par,
+                     sem_comodo=False):
     """Cria um slide com até 2 fotos (lista de dicts {path, descricao})."""
     slide = prs.slides.add_slide(layout)
 
@@ -193,14 +218,14 @@ def _add_photo_slide(prs, layout, comodo_nome, periodo_label, fotos_par):
     f1 = fotos_par[0]
     pic_l = _placeholder(slide, PH_PIC_LEFT)
     foto1 = pic_l.insert_picture(f1["path"])
-    _set_caption(slide, PH_CAP_LEFT, f1.get("descricao", ""))
+    _set_caption(slide, PH_CAP_LEFT, f1.get("descricao", ""), sem_comodo)
 
     # Foto da direita (opcional)
     if len(fotos_par) > 1:
         f2 = fotos_par[1]
         pic_r = _placeholder(slide, PH_PIC_RIGHT)
         pic_r.insert_picture(f2["path"])
-        _set_caption(slide, PH_CAP_RIGHT, f2.get("descricao", ""))
+        _set_caption(slide, PH_CAP_RIGHT, f2.get("descricao", ""), sem_comodo)
     else:
         # Slide com 1 foto só (cômodo com número ímpar de fotos): remove os
         # espaços da direita e centraliza a foto e a legenda no meio do slide.
@@ -249,8 +274,10 @@ def gerar_relatorio(template_path, output_path, obra, periodo_label, comodos):
     output_path   : str   caminho de saída do relatório
     obra          : dict  {"nome": str, "endereco": str}
     periodo_label : str   ex.: "JUNHO 2026"
-    comodos       : list  [{"nome": str,
+    comodos       : list  [{"nome": str, "geral": bool (opcional),
                             "fotos": [{"path": str, "descricao": str}, ...]}]
+                          "geral": True = fotos avulsas, sem cômodo (a legenda
+                          sai como texto livre, sem sublinhado de cômodo).
     """
     prs = Presentation(template_path)
 
@@ -260,6 +287,7 @@ def gerar_relatorio(template_path, output_path, obra, periodo_label, comodos):
     # slide[0] = capa (reutilizada); slide[1] = exemplo (removido)
     _set_cover(prs.slides[0], obra["nome"], obra.get("endereco", ""),
                periodo_label)
+    _encostar_barra_esquerda(prs, prs.slides[0])
     while len(prs.slides._sldIdLst) > 1:
         _delete_slide(prs, 1)
 
@@ -269,7 +297,8 @@ def gerar_relatorio(template_path, output_path, obra, periodo_label, comodos):
             continue
         for i in range(0, len(fotos), 2):
             _add_photo_slide(prs, layout, comodo["nome"], periodo_label,
-                             fotos[i:i + 2])
+                             fotos[i:i + 2],
+                             sem_comodo=comodo.get("geral", False))
 
     prs.save(output_path)
     return output_path

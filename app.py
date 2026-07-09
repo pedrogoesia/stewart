@@ -178,6 +178,14 @@ def _migrar_colunas():
         db.session.commit()
     except Exception:
         db.session.rollback()
+    # Coluna 'geral' (seção de fotos sem cômodo) em bancos criados antes dela.
+    try:
+        db.session.execute(text(
+            "ALTER TABLE comodos ADD COLUMN geral BOOLEAN NOT NULL DEFAULT FALSE"))
+        db.session.commit()
+        print("[MIGRACAO] Coluna comodos.geral criada.")
+    except Exception:
+        db.session.rollback()   # coluna já existe
 
 
 def _resetar_admin_se_pedido(Usuario):
