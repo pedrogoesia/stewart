@@ -33,8 +33,7 @@ async function criarComodo() {
 
   document.getElementById("comodos").insertAdjacentHTML("beforeend",
     comodoTemplate(c.id, c.nome));
-  document.querySelector(`[data-comodo-id="${c.id}"]`)
-    .scrollIntoView({ behavior: "smooth", block: "center" });
+  input.focus();  // pronto para digitar o próximo cômodo, sem rolar a página
 }
 
 // Seção de fotos avulsas ("sem cômodo"): reaproveita a existente ou cria uma.
@@ -43,15 +42,12 @@ async function criarComodoGeral() {
   if (!resp.ok) { alert("Não foi possível criar a seção de fotos."); return; }
   const c = await resp.json();
 
-  let sec = document.querySelector(`[data-comodo-id="${c.id}"]`);
-  if (!sec) {
+  if (!document.querySelector(`[data-comodo-id="${c.id}"]`)) {
     const semComodos = document.getElementById("sem-comodos");
     if (semComodos) semComodos.remove();
     document.getElementById("comodos").insertAdjacentHTML("beforeend",
       comodoTemplate(c.id, c.nome, true));
-    sec = document.querySelector(`[data-comodo-id="${c.id}"]`);
   }
-  sec.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function comodoTemplate(id, nome, geral = false) {
