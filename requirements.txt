@@ -9,6 +9,8 @@ Flask-WTF>=1.2
 Flask-Limiter>=3.5
 # Servidor de produção (usado na hospedagem, ex.: Render)
 gunicorn>=21.2
+# Serve os arquivos estáticos (CSS/JS/imagens) sem ocupar o Flask sob carga
+whitenoise>=6.6
 # Driver do PostgreSQL — usado só quando DATABASE_URL aponta para um Postgres.
 # No SQLite local ele nem é carregado. Tem instalador pronto p/ Windows/Mac/Linux.
 psycopg[binary]>=3.1

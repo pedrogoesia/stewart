@@ -50,3 +50,25 @@ os fluxos, não para uso real com fotos.
 
 Cada vez que você fizer `git push` para a branch publicada, o Render
 **redeploya sozinho**.
+
+## Capacidade (muitos usuários ao mesmo tempo)
+
+O servidor sobe com **workers com threads** (`gunicorn.conf.py`): por padrão
+2 processos × 16 threads = **32 requisições simultâneas**. Como o trabalho é
+quase todo I/O (banco, OpenAI, disco), isso atende bem centenas de usuários
+navegando ao mesmo tempo. Para ajustar sem mexer no código, defina no painel:
+
+- `WEB_CONCURRENCY` → nº de processos (suba junto com o plano/CPU; ex.: 4 no
+  plano Standard).
+- `GUNICORN_THREADS` → threads por processo (padrão 16).
+
+Dicas para carga alta:
+
+- **Neon:** use a connection string **pooled** (com `-pooler` no host, via
+  PgBouncer) na `DATABASE_URL` — ela aguenta muito mais conexões simultâneas
+  que a direta.
+- **Rate limit:** com mais de um processo, o limite de requisições é contado
+  por processo. Para contagem exata, aponte `RATELIMIT_STORAGE_URI` para um
+  Redis (ex.: o Key Value do próprio Render).
+- Os arquivos estáticos (CSS/JS/imagens) são servidos pelo WhiteNoise com
+  cache de 1 ano, sem ocupar a aplicação.

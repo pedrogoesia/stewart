@@ -36,13 +36,31 @@ def create_app():
     # detectar HTTPS — necessário para os cookies "Secure".
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+    # WhiteNoise responde /static/* direto no WSGI, sem ocupar o Flask:
+    # sob carga, as threads ficam livres para requisições que usam o banco.
+    # Cache de 1 ano é seguro porque as URLs levam ?v=<mtime> (ver 'asset').
+    try:
+        from whitenoise import WhiteNoise
+        app.wsgi_app = WhiteNoise(app.wsgi_app, root=app.static_folder,
+                                  prefix="static/", max_age=31536000)
+    except ImportError:
+        pass  # sem WhiteNoise o Flask serve os estáticos normalmente
+
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB por upload
     # Cache longo para arquivos estáticos (CSS/JS/imagens). As URLs de CSS/JS
     # levam ?v=<mtime> (ver context processor 'asset'), então atualizações
     # aparecem na hora, mas o navegador não rebaixa tudo a cada navegação.
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 31536000  # 1 ano
     app.config["SQLALCHEMY_DATABASE_URI"] = database_url()
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
+    # Pool de conexões dimensionado para os workers com threads do Gunicorn
+    # (ver gunicorn.conf.py): até 16 threads por processo podem falar com o
+    # banco ao mesmo tempo. pool_recycle < 5 min porque o Neon encerra
+    # conexões ociosas — sem isso aparecem erros intermitentes sob carga.
+    engine_options = {"pool_pre_ping": True}
+    if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql"):
+        engine_options.update(pool_size=8, max_overflow=8,
+                              pool_recycle=240, pool_timeout=30)
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
     app.config["RATELIMIT_STORAGE_URI"] = os.environ.get(
         "RATELIMIT_STORAGE_URI", "memory://")
     app.config.update(

@@ -16,7 +16,8 @@ services:
     branch: main
     buildCommand: pip install -r requirements.txt
     # Cria/atualiza as tabelas e o admin, depois sobe o servidor de produção.
-    startCommand: python -c "import app; app.init_db()" && gunicorn --workers 2 --timeout 120 --bind 0.0.0.0:$PORT app:app
+    # A concorrência (workers/threads) é configurada em gunicorn.conf.py.
+    startCommand: python -c "import app; app.init_db()" && gunicorn -c gunicorn.conf.py app:app
     healthCheckPath: /login
     disk:
       name: stewart-data
