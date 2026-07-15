@@ -52,13 +52,24 @@ def processar_imagem(file_storage, dest_path):
         file_storage.stream.seek(0)
         img = Image.open(file_storage.stream)
         if img.format not in ALLOWED_IMAGE_FORMATS:
-            raise ValueError("Formato de imagem nao permitido.")
+            raise ValueError(
+                "Formato de imagem não aceito. Envie fotos em JPG, PNG, "
+                "HEIC (iPhone), WEBP, GIF, TIFF ou BMP.")
     except UnidentifiedImageError as exc:
-        raise ValueError("Arquivo enviado nao e uma imagem valida.") from exc
+        raise ValueError(
+            "O arquivo enviado não é uma foto (vídeos e documentos não "
+            "são aceitos aqui).") from exc
+    except Image.DecompressionBombError as exc:
+        raise ValueError(
+            "A foto tem resolução alta demais. Tire a foto em um modo de "
+            "resolução menor (ex.: 12 MP) e envie novamente.") from exc
+    # Fotos de 100-200 MP: decodifica o JPEG já em tamanho reduzido, senão
+    # a imagem inteira vai para a memória (600 MB num JPEG de 200 MP) e o
+    # servidor pequeno cai. O draft usa a escala do próprio JPEG; a redução
+    # final abaixo (LANCZOS) garante a qualidade.
+    img.draft("RGB", (MAX_IMG_SIDE * 2, MAX_IMG_SIDE * 2))
     img = ImageOps.exif_transpose(img)
-    if img.mode not in ("RGB", "L"):
-        img = img.convert("RGB")
-    elif img.mode == "L":
+    if img.mode != "RGB":
         img = img.convert("RGB")
     img.thumbnail((MAX_IMG_SIDE, MAX_IMG_SIDE), Image.LANCZOS)
     img.save(dest_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
