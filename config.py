@@ -29,9 +29,11 @@ JPEG_QUALITY = 85
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "HEIF", "HEIC",
                          "GIF", "TIFF", "BMP"}
 # Pillow bloqueia imagens com mais de 2x este valor (anti bomba de
-# descompressão). 260 MP cobre os modos de 200 MP dos celulares atuais;
-# o custo de memória é controlado pelo draft() em processar_imagem.
-MAX_IMAGE_PIXELS = int(os.environ.get("MAX_IMAGE_PIXELS", "260000000"))
+# descompressão). Nenhuma foto real deve ser recusada por tamanho — ela é
+# reduzida ao padrão no upload —, então o teto fica altíssimo (erro só
+# acima de 2 gigapixels, coisa que câmera nenhuma produz). A memória é
+# protegida pelo draft() e pelo funil de decodificação em processar_imagem.
+MAX_IMAGE_PIXELS = int(os.environ.get("MAX_IMAGE_PIXELS", "1000000000"))
 SENHA_MIN = 8                # tamanho mínimo de senha
 
 MESES = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", "JULHO",

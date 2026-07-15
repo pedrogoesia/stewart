@@ -2,6 +2,7 @@
 
 import os
 import re
+import threading
 import unicodedata
 from datetime import datetime
 
@@ -46,6 +47,10 @@ def preview_rel(arquivo):
     return arquivo + ".preview.jpg"
 
 
+# Funil de decodificação: ver comentário em processar_imagem.
+_decodificacao = threading.BoundedSemaphore(2)
+
+
 def processar_imagem(file_storage, dest_path):
     """Corrige orientação (EXIF), redimensiona e salva como JPEG."""
     try:
@@ -61,18 +66,22 @@ def processar_imagem(file_storage, dest_path):
             "são aceitos aqui).") from exc
     except Image.DecompressionBombError as exc:
         raise ValueError(
-            "A foto tem resolução alta demais. Tire a foto em um modo de "
-            "resolução menor (ex.: 12 MP) e envie novamente.") from exc
-    # Fotos de 100-200 MP: decodifica o JPEG já em tamanho reduzido, senão
-    # a imagem inteira vai para a memória (600 MB num JPEG de 200 MP) e o
-    # servidor pequeno cai. O draft usa a escala do próprio JPEG; a redução
-    # final abaixo (LANCZOS) garante a qualidade.
+            "Este arquivo excede o tamanho máximo aceito. Se for mesmo uma "
+            "foto, envie uma versão menor.") from exc
+    # Fotos de alta resolução (100-200 MP+): decodifica o JPEG já em tamanho
+    # reduzido, senão a imagem inteira vai para a memória (600 MB num JPEG de
+    # 200 MP) e o servidor pequeno cai. O draft usa a escala do próprio JPEG;
+    # a redução final abaixo (LANCZOS) garante a qualidade.
     img.draft("RGB", (MAX_IMG_SIDE * 2, MAX_IMG_SIDE * 2))
-    img = ImageOps.exif_transpose(img)
-    if img.mode != "RGB":
-        img = img.convert("RGB")
-    img.thumbnail((MAX_IMG_SIDE, MAX_IMG_SIDE), Image.LANCZOS)
-    img.save(dest_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
+    # Funil: no máximo 2 decodificações completas ao mesmo tempo. Formatos sem
+    # draft (PNG/HEIC/TIFF) carregam a imagem inteira na memória; sob upload
+    # simultâneo de fotos gigantes isso derrubaria o servidor de 512 MB.
+    with _decodificacao:
+        img = ImageOps.exif_transpose(img)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        img.thumbnail((MAX_IMG_SIDE, MAX_IMG_SIDE), Image.LANCZOS)
+        img.save(dest_path, "JPEG", quality=JPEG_QUALITY, optimize=True)
 
 
 def comodos_com_fotos(obra):
