@@ -36,8 +36,16 @@
       p += `<w:pBdr>` + edges.map(e =>
         `<w:${e} w:val="single" w:sz="${szb}" w:space="${sp}" w:color="${col}"/>`).join("") + `</w:pBdr>`;
     }
-    p += `<w:spacing w:before="${o.before != null ? o.before : 0}" w:after="${o.after != null ? o.after : 0}"/>`;
-    if (o.indent) p += `<w:ind w:left="${tw(o.indent)}"/>`;
+    // Só escreve o espaçamento pedido; sem ele o parágrafo herda o padrão do
+    // documento (entrelinha 1,15 / 200 depois), como no modelo oficial.
+    let sp = ``;
+    if (o.before != null) sp += ` w:before="${o.before}"`;
+    if (o.after != null) sp += ` w:after="${o.after}"`;
+    if (sp) p += `<w:spacing${sp}/>`;
+    if (o.indent || o.indentRight) {
+      p += `<w:ind` + (o.indent ? ` w:left="${tw(o.indent)}"` : ``) +
+        (o.indentRight ? ` w:right="${tw(o.indentRight)}"` : ``) + `/>`;
+    }
     if (o.jc) p += `<w:jc w:val="${o.jc}"/>`;
     return `<w:p><w:pPr>${p}</w:pPr>${runsXml}</w:p>`;
   }
@@ -91,12 +99,12 @@
   function buildBody(d) {
     let b = "";
     // título
-    b += para(run("ATA DE REUNIÃO", { b: true, sz: 18, color: GRAFITE }), { after: 20 });
+    b += para(run("ATA DE REUNIÃO", { b: true, sz: 18, color: GRAFITE }));
     const obra = d.obra || "[a confirmar]";
     const num = String(d.numero || "00").padStart(2, "0");
-    b += para(run("Obra " + obra, { b: true, sz: 9, color: RED }) +
-      run("      Ata nº " + num + "      Revisão 00", { sz: 9, color: CINZA }),
-      { before: 20, after: 200 });
+    b += para(run("Obra " + obra, { b: true, sz: 10, color: RED }) +
+      run("      Ata nº " + num + "      Revisão 00", { sz: 10, color: CINZA }),
+      { before: 40, after: 200 });
 
     // identificação
     const idw = [3.6, 13.4];
@@ -135,7 +143,7 @@
         cell(para(run(a.titulo || "[a confirmar]", { b: true, sz: 11 })),
           { w: bw[1], mt: 40, mb: 40, ml: 160, mr: 40 }));
       b += table(badge, bw, { noBorders: true });
-      b += para(run(a.descricao || "[a confirmar]", { sz: 9, color: a.descricao ? GRAFITE : CINZA }),
+      b += para(run(a.descricao || "[a confirmar]", { sz: 10, color: a.descricao ? GRAFITE : CINZA }),
         { indent: 0.9, before: 60, after: 60 });
       b += para(
         run("Responsável: ", { b: true, sz: 8.5, color: CINZA }) +
@@ -176,14 +184,15 @@
       "manifestação formal em contrário no prazo de " + prazoAp + ", a contar do seu recebimento, " +
       "o conteúdo será considerado integralmente aprovado pelas partes.",
       { i: true, sz: 9, color: GRAFITE }),
-      { pBdr: "box", borderColor: BORDER, borderSz: 4, before: 40, after: 40 });
+      { pBdr: "box", borderColor: BORDER, borderSz: 4, before: 40, after: 40,
+        indent: 0.2, indentRight: 0.2 });
 
     // sectPr
     b += `<w:sectPr>` +
       `<w:headerReference w:type="default" r:id="rId4"/>` +
       `<w:footerReference w:type="default" r:id="rId5"/>` +
       `<w:pgSz w:w="11906" w:h="16838"/>` +
-      `<w:pgMar w:top="1361" w:right="1134" w:bottom="1021" w:left="1134" ` +
+      `<w:pgMar w:top="1644" w:right="1134" w:bottom="1020" w:left="1134" ` +
       `w:header="567" w:footer="454" w:gutter="0"/></w:sectPr>`;
     return b;
   }
@@ -202,7 +211,7 @@
       `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ` +
       `xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
       `<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="18" w:space="4" w:color="${RED}"/></w:pBdr>` +
-      `<w:spacing w:after="0"/></w:pPr>${logoDrawing()}</w:p></w:hdr>`;
+      `</w:pPr>${logoDrawing()}</w:p></w:hdr>`;
   }
 
   function footerXml() {
@@ -213,16 +222,16 @@
     const numRun = `<w:r><w:fldChar w:fldCharType="begin"/></w:r>` +
       `<w:r><w:instrText xml:space="preserve"> NUMPAGES </w:instrText></w:r>` +
       `<w:r><w:fldChar w:fldCharType="end"/></w:r>`;
-    const right = `<w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="right"/></w:pPr>` +
+    const right = `<w:p><w:pPr><w:jc w:val="right"/></w:pPr>` +
       run("Página ", { sz: 8, color: CINZA }) + pageRun + run(" de ", { sz: 8, color: CINZA }) + numRun + `</w:p>`;
-    const left = `<w:p><w:pPr><w:spacing w:after="0"/></w:pPr>` +
+    const left = `<w:p><w:pPr></w:pPr>` +
       run("STEWART ENGENHARIA", { b: true, sz: 7, color: CINZA }) +
       run("   •   Documento confidencial", { sz: 7, color: CINZA }) + `</w:p>`;
     const tbl = table(row(cell(left, { w: fw[0] }) + cell(right, { w: fw[1] })), fw, { noBorders: true });
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
       `<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
       `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-      `${tbl}<w:p><w:pPr><w:spacing w:after="0"/></w:pPr></w:p></w:ftr>`;
+      `${tbl}<w:p><w:pPr></w:pPr></w:p></w:ftr>`;
   }
 
   const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -230,7 +239,7 @@
     `<w:docDefaults><w:rPrDefault><w:rPr>` +
     `<w:rFonts w:ascii="${FONT}" w:hAnsi="${FONT}" w:cs="${FONT}"/>` +
     `<w:color w:val="${GRAFITE}"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr></w:rPrDefault>` +
-    `<w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="252" w:lineRule="auto"/></w:pPr></w:pPrDefault>` +
+    `<w:pPrDefault><w:pPr><w:spacing w:after="200" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault>` +
     `</w:docDefaults>` +
     `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
 
