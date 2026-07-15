@@ -86,7 +86,23 @@ _ATA_INSTRUCOES = (
     'adequadamente. No campo "empresa" de cada participante, coloque a '
     "empresa OU a função/papel citado no texto (ex.: Cliente, Arquiteta, "
     "Eletricista da construtora) — não deixe vazio se o texto informar. "
-    "Descrições objetivas e concisas, em frases completas. "
+    "ASSUNTOS — siga à risca o padrão da empresa: "
+    "(1) Agrupe a reunião em POUCOS temas macro, tipicamente 5 a 10 — um "
+    "assunto por TEMA, nunca um por micro-decisão, comentário ou detalhe. "
+    "Se vários pontos tratam do mesmo tema (ex.: várias decisões sobre a "
+    "escada), vire UM assunto só. "
+    '(2) "titulo": um rótulo curto de 1 a 4 palavras, como '
+    '"Grelhas", "Iluminação", "Projeto do Spa", "Concretagem", '
+    '"Banheiro do Marcelo". Sem travessões nem subtítulos. '
+    '(3) "descricao": UMA frase curta e objetiva (no máximo ~15 palavras) '
+    "dizendo o que foi tratado, SEM medidas, justificativas, alternativas "
+    'discutidas ou nomes de pessoas. Exemplos do padrão: "Discussão sobre '
+    'o avanço da laje e posicionamento da escada.", "Medições e discussões '
+    'sobre grelhas no banheiro e sua divisão.", "Ajustes na iluminação na '
+    'varanda e soluções alternativas.", "Especificações sobre como '
+    'proceder com a concretagem.". '
+    '(4) "responsavel" e "prazo": preencha somente se estiverem ditos de '
+    'forma explícita e inequívoca no texto; na dúvida, deixe "". '
     "Português do Brasil.")
 
 
