@@ -134,7 +134,10 @@ def extrair_dados_ata(texto):
             "Biblioteca da OpenAI não instalada. Rode: "
             "pip install -r requirements.txt") from exc
 
-    model = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini")
+    # Benchmark de 15/07/2026 (mesma reunião real, 6 modelos): o gpt-5.4-mini
+    # foi o mais rápido (10,7s vs 48s do gpt-4o-mini) e o mais aderente ao
+    # padrão da ata (títulos "tema - subtema", responsáveis, status).
+    model = os.environ.get("OPENAI_TEXT_MODEL", "gpt-5.4-mini")
     # timeout: sem ele o SDK espera até 10 min e o usuário fica sem resposta.
     client = OpenAI(api_key=api_key, timeout=60)
     try:
@@ -143,7 +146,7 @@ def extrair_dados_ata(texto):
             response_format={"type": "json_object"},
             # Reuniões longas rendem 20-30 assuntos detalhados; com limite
             # baixo o JSON vem cortado pela metade e a extração falha.
-            max_completion_tokens=4000,
+            max_completion_tokens=6000,
             messages=[{"role": "system", "content": _ATA_INSTRUCOES},
                       {"role": "user", "content": texto}],
         )
