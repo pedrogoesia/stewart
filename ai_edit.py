@@ -77,7 +77,7 @@ _ATA_INSTRUCOES = (
     '{"cliente":"","obra":"","numero":"","endereco":"","data":"","local":"",'
     '"participantes":[{"nome":"","empresa":""}],'
     '"assuntos":[{"titulo":"","descricao":"","responsavel":"","prazo":"",'
-    '"status":"Pendente"}]}. '
+    '"status":"Pendente OU Em andamento OU Concluído"}]}. '
     'Use "" quando a informação não estiver no texto. Não invente fatos '
     "novos, mas ESCREVA TUDO EM PORTUGUÊS CORRETO: transcrições de áudio "
     "vêm com erros de digitação, ortografia e acentuação — corrija-os "
@@ -87,22 +87,31 @@ _ATA_INSTRUCOES = (
     "empresa OU a função/papel citado no texto (ex.: Cliente, Arquiteta, "
     "Eletricista da construtora) — não deixe vazio se o texto informar. "
     "ASSUNTOS — siga à risca o padrão da empresa: "
-    "(1) Agrupe a reunião em POUCOS temas macro, tipicamente 5 a 10 — um "
-    "assunto por TEMA, nunca um por micro-decisão, comentário ou detalhe. "
-    "Se vários pontos tratam do mesmo tema (ex.: várias decisões sobre a "
-    "escada), vire UM assunto só. "
-    '(2) "titulo": um rótulo curto de 1 a 4 palavras, como '
-    '"Grelhas", "Iluminação", "Projeto do Spa", "Concretagem", '
-    '"Banheiro do Marcelo". Sem travessões nem subtítulos. '
-    '(3) "descricao": UMA frase curta e objetiva (no máximo ~15 palavras) '
-    "dizendo o que foi tratado, SEM medidas, justificativas, alternativas "
-    'discutidas ou nomes de pessoas. Exemplos do padrão: "Discussão sobre '
-    'o avanço da laje e posicionamento da escada.", "Medições e discussões '
-    'sobre grelhas no banheiro e sua divisão.", "Ajustes na iluminação na '
-    'varanda e soluções alternativas.", "Especificações sobre como '
-    'proceder com a concretagem.". '
-    '(4) "responsavel" e "prazo": preencha somente se estiverem ditos de '
-    'forma explícita e inequívoca no texto; na dúvida, deixe "". '
+    "(1) Um assunto para CADA ponto tratado na reunião — cada decisão, "
+    "pendência, definição ou problema vira um item próprio. Não agrupe "
+    "pontos distintos num tema genérico; uma reunião cheia pode render "
+    "20-30 assuntos. "
+    '(2) "titulo": específico e descritivo, podendo ter subtema após um '
+    'hífen. Exemplos do padrão: "Escada - degrau fora do eixo", "Banheiro '
+    'do Marcelo - revestimento e grelha do box", "Pendência de iluminação '
+    'da varanda e sob o duto", "Altura do guarda-corpo de vidro". '
+    '(3) "descricao": 1 a 3 frases completas e informativas, registrando '
+    "o que foi discutido e decidido, INCLUINDO medidas, alternativas "
+    "avaliadas, justificativas e encaminhamentos citados no texto. "
+    'Exemplos do padrão: "Definição da peça de revestimento do box e '
+    "avaliação de dividir a grelha ao meio (já comprada, ainda não "
+    'produzida) para reduzir o peso da peça.", "Altura atual de 1,20 m '
+    "tecnicamente segura, porém equipe avalia elevar entre 10 e 20 cm "
+    'adicionais por questão de sensação de segurança e estética.". '
+    '(4) "responsavel" e "prazo": preencha sempre que o texto indicar '
+    'quem cuida do ponto ou até quando (ex.: "Camila (AQ Design)", '
+    '"Final de junho"); se não houver indicação, deixe "". '
+    '(5) "status": classifique CADA assunto individualmente — não use '
+    '"Pendente" como padrão. "Concluído" = já resolvido/decidido/liberado. '
+    '"Em andamento" = execução iniciada, em teste, em revisão, em '
+    "contratação ou aguardando retorno já encaminhado (ex.: primeira etapa "
+    "executada, área em teste, orçamento sendo enviado, aguardando desenho "
+    'já pedido). "Pendente" = ainda sem definição nem encaminhamento. '
     "Português do Brasil.")
 
 
@@ -132,7 +141,9 @@ def extrair_dados_ata(texto):
         resposta = client.chat.completions.create(
             model=model,
             response_format={"type": "json_object"},
-            max_completion_tokens=1500,
+            # Reuniões longas rendem 20-30 assuntos detalhados; com limite
+            # baixo o JSON vem cortado pela metade e a extração falha.
+            max_completion_tokens=4000,
             messages=[{"role": "system", "content": _ATA_INSTRUCOES},
                       {"role": "user", "content": texto}],
         )
