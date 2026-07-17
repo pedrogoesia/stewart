@@ -43,6 +43,10 @@
        href="{{ url_for('tarefas.index') }}">{{ icone('calendar') }} Agenda de Tarefas
       {%- set n = tarefas_badge() %}{% if n %} <span class="sb-badge">{{ n }}</span>{% endif %}</a>
     {% endif %}
+    {% if current_user.pode_ver_ferramenta('manutencao') %}
+    <a class="sb-item {% if request.path == url_for('manutencao.index') %}ativo{% endif %}"
+       href="{{ url_for('manutencao.index') }}">{{ icone('wrench') }} Manutenções</a>
+    {% endif %}
 
     {% if current_user.is_admin %}
     <div class="sb-sec">Administração</div>

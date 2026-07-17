@@ -104,10 +104,12 @@ def create_app():
     from blueprints.relatorios import bp as relatorios_bp
     from blueprints.atas import bp as atas_bp
     from blueprints.tarefas import bp as tarefas_bp
+    from blueprints.manutencao import bp as manutencao_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(relatorios_bp)
     app.register_blueprint(atas_bp)
     app.register_blueprint(tarefas_bp)
+    app.register_blueprint(manutencao_bp)
 
     @app.context_processor
     def injetar_assets():

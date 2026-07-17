@@ -21,15 +21,13 @@ blueprint com permissão própria (modelo `FERRAMENTAS` em models.py).
 
 ---
 
-## Fase 0 — Fundação contínua (em andamento)
+## Fase 0 — Fundação contínua ✅ (17/07/2026)
 
-**Objetivo:** confiança para crescer sem quebrar o que existe.
-
-- Cobertura de testes das áreas existentes (isolamento ✅, ferramentas/admin,
-  fluxo upload→relatório, atas)
-- CI: rodar `pytest` automaticamente a cada push (GitHub Actions)
-- Estratégia de migração de banco: hoje `init_db()`/`_migrar_colunas()` é
-  manual — avaliar Alembic quando os modelos das fases 1–3 chegarem
+- ✅ Cobertura de testes das áreas existentes (isolamento, ferramentas/admin,
+  fluxo upload→relatório, atas, tarefas, manutenções)
+- ✅ CI: `.github/workflows/tests.yml` roda a suíte a cada push/PR
+- Pendente contínuo: avaliar Alembic quando as migrações manuais
+  (`_migrar_colunas`) ficarem pesadas
 
 ## Fase 1 — Agenda e tarefas por obra
 
@@ -41,20 +39,12 @@ Decisões: engenheiro + admin criam/atribuem tarefas; papéis
 (engenheiro/encarregado/estagiário) com vínculo usuário↔obra; v1 é tarefas
 com prazo + visão "minha semana"; notificação só na plataforma (badge).
 
-## Fase 2 — Setor de Manutenção
+## Fase 2 — Setor de Manutenção ✅ (17/07/2026)
 
-**Objetivo:** registro das obras já entregues (clientes antigos) e do
-histórico de manutenções feitas em cada uma; encarregado de manutenção tem
-login próprio e vê o que precisa fazer na semana.
-
-**Esboço:** cadastro de obra entregue/cliente, registro de manutenção
-(data, o que foi feito, fotos?), agenda semanal do encarregado.
-
-**Perguntas abertas:**
-- Obra entregue reaproveita o modelo `Obra` atual ou é entidade separada
-  (cliente, endereço, data de entrega, garantia)?
-- Quem agenda as manutenções da semana — o setor ou o encarregado?
-- Manutenção tem foto/relatório como as obras?
+**Spec: `specs/fase2-manutencao.md`.** Decisões: obra entregue é entidade
+própria; setor agenda / encarregado executa; conclusão com descrição + fotos.
+Implementada: papel `manutencao`, ferramenta `manutencao`,
+`blueprints/manutencao.py`, testes em `tests/test_manutencao.py`.
 
 ## Fase 3 — Setor de Compras
 
@@ -68,13 +58,11 @@ emails), geração automática do PDF de cotação, registro das respostas dos
 fornecedores, comparativo de preços, PDF final + envio por email ao
 financeiro.
 
-**Perguntas abertas:**
-- Os engenheiros passam a pedir *pela plataforma* (mais simples e estruturado)
-  ou o sistema precisa ler a caixa de email existente (integração IMAP/Gmail)?
-- Anexar um exemplo do PDF atual (modelo a reproduzir) e dos emails típicos.
-- Existe etapa de aprovação (alçada de valor) antes de mandar ao financeiro?
-- Envio de email pela plataforma exige serviço SMTP/API (ex.: Resend, SES) —
-  definir remetente e domínio.
+**Decisão tomada (17/07/2026):** pedidos entram *pela plataforma* (formulário
+estruturado). Spec rascunhada em `specs/fase3-compras.md` — implementação
+**bloqueada nos insumos**: exemplo do PDF atual, email de pedido típico,
+dados do comprador e decisão sobre envio automático de email (v1 pode ser
+baixar o PDF e enviar manualmente).
 
 ---
 

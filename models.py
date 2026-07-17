@@ -23,15 +23,18 @@ FERRAMENTAS = {
     "relatorios": "Relatório de Obras",
     "atas": "Assistente de Atas",
     "tarefas": "Agenda de Tarefas",
+    "manutencao": "Manutenções",
 }
 TODAS_FERRAMENTAS = ",".join(FERRAMENTAS)
 
 # Papéis de quem trabalha nas obras (opcional: contas antigas ficam sem papel).
 # Quem gerencia tarefas de uma obra: admin, dono da obra ou engenheiro membro.
+# Quem gerencia a ferramenta Manutenções: admin ou papel "manutencao".
 PAPEIS = {
     "engenheiro": "Engenheiro",
     "encarregado": "Encarregado",
     "estagiario": "Estagiário",
+    "manutencao": "Setor de Manutenção",
 }
 
 # Vínculo usuário↔obra: define quais obras cada pessoa vê na Agenda de
@@ -155,6 +158,59 @@ class Tarefa(db.Model):
 
 
 # ---------------------------------------------------------------------------
+# Ferramenta: Manutenções (obras entregues / clientes antigos)
+# ---------------------------------------------------------------------------
+class ObraEntregue(db.Model):
+    __tablename__ = "obras_entregues"
+    id = db.Column(db.Integer, primary_key=True)
+    cliente = db.Column(db.String(255), nullable=False)
+    endereco = db.Column(db.String(255), default="")
+    data_entrega = db.Column(db.Date)
+    fim_garantia = db.Column(db.Date)
+    observacoes = db.Column(db.Text, default="")
+    criado_em = db.Column(db.String(40), nullable=False)
+
+
+class Manutencao(db.Model):
+    __tablename__ = "manutencoes"
+    id = db.Column(db.Integer, primary_key=True)
+    obra_entregue_id = db.Column(
+        db.Integer, db.ForeignKey("obras_entregues.id"),
+        nullable=False, index=True)
+    titulo = db.Column(db.String(255), nullable=False)
+    detalhes = db.Column(db.Text, default="")
+    # Responsável/criador ficam NULL se o usuário for excluído (o histórico
+    # do cliente não se perde junto com a conta).
+    responsavel_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"),
+                               index=True)
+    criador_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"))
+    data_agendada = db.Column(db.Date, index=True)
+    status = db.Column(db.String(20), nullable=False, default="agendada")
+    descricao_realizada = db.Column(db.Text, default="")
+    concluida_em = db.Column(db.String(40))
+    criado_em = db.Column(db.String(40), nullable=False)
+
+    obra = db.relationship(
+        "ObraEntregue",
+        backref=db.backref("manutencoes", cascade="all, delete-orphan"))
+    responsavel = db.relationship("Usuario", foreign_keys=[responsavel_id])
+
+
+class FotoManutencao(db.Model):
+    __tablename__ = "fotos_manutencao"
+    id = db.Column(db.Integer, primary_key=True)
+    manutencao_id = db.Column(db.Integer, db.ForeignKey("manutencoes.id"),
+                              nullable=False, index=True)
+    arquivo = db.Column(db.String(500), nullable=False)
+    ordem = db.Column(db.Integer, nullable=False, default=0)
+    criado_em = db.Column(db.String(40), nullable=False)
+
+    manutencao = db.relationship(
+        "Manutencao",
+        backref=db.backref("fotos", cascade="all, delete-orphan"))
+
+
+# ---------------------------------------------------------------------------
 # Auditoria: quem fez o quê e quando
 # ---------------------------------------------------------------------------
 class Atividade(db.Model):
@@ -260,6 +316,28 @@ def tarefa_do_membro(tarefa_id):
     if tarefa is None or not eh_membro_da_obra(tarefa.obra):
         abort(404)
     return tarefa
+
+
+def eh_gestor_manutencao(usuario=None):
+    """Gestor da ferramenta Manutenções: admin ou papel 'manutencao'."""
+    u = usuario if usuario is not None else current_user
+    return u.is_authenticated and (u.is_admin or u.papel == "manutencao")
+
+
+def obra_entregue_do_gestor(obra_id):
+    obra = db.session.get(ObraEntregue, obra_id)
+    if obra is None or not eh_gestor_manutencao():
+        abort(404)
+    return obra
+
+
+def manutencao_do_usuario(manutencao_id):
+    """Gestor vê qualquer manutenção; executor só as atribuídas a ele."""
+    m = db.session.get(Manutencao, manutencao_id)
+    if m is None or not (eh_gestor_manutencao()
+                         or m.responsavel_id == current_user.id):
+        abort(404)
+    return m
 
 
 def senha_fraca(senha):

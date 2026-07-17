@@ -18,7 +18,8 @@ bp = Blueprint("auth", __name__)
 
 # Página inicial de cada ferramenta (para o redirecionamento pós-login).
 _INDEX_FERRAMENTA = {"relatorios": "relatorios.index", "atas": "atas.index",
-                     "tarefas": "tarefas.index"}
+                     "tarefas": "tarefas.index",
+                     "manutencao": "manutencao.index"}
 
 
 def _pagina_inicial():

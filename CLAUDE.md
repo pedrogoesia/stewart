@@ -40,6 +40,8 @@ source .venv/bin/activate && python app.py
 - `tests/test_tarefas.py` — Agenda de Tarefas: papéis (engenheiro gerencia;
   encarregado/estagiário só mudam o próprio status), vínculo por obra, validações
   e visão "minha semana".
+- `tests/test_manutencao.py` — Manutenções: gestor (papel `manutencao`/admin)
+  × executor, obras entregues, conclusão com descrição obrigatória, fotos.
 - O `tests/conftest.py` aponta `DATA_DIR` para pasta temporária antes de
   importar o app — os testes nunca tocam `data/` nem banco de produção.
   Manter esse padrão em testes novos. **Todo modelo novo entra com testes de
@@ -65,6 +67,7 @@ blueprints/
   relatorios.py      # Obras, cômodos, fotos, geração de relatórios
   atas.py            # Atas de reunião (.docx, com IA)
   tarefas.py         # Agenda de Tarefas por obra ("minha semana", badge)
+  manutencao.py      # Manutenções: obras entregues, agenda do setor, fotos
 pptx_generator.py    # Gera o .pptx a partir de template/TEMPLATE_STEWART.pptx
 ai_edit.py           # Integração OpenAI (edição de fotos + texto das atas)
 utils.py             # Processamento de imagem (EXIF, resize, formatos)

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Manutenções — Stewart{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Ferramenta</span>
+    <h1>Manutenções</h1>
+    <p class="muted">Obras entregues e agenda de manutenções do setor.</p>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('nova-obra-entregue').showModal()">
+    + Obra entregue
+  </button>
+</div>
+
+{% macro grupo(titulo, itens, classe) %}
+  {% if itens %}
+  <section class="tarefas-grupo {{ classe }}">
+    <h2>{{ titulo }} <span class="muted">({{ itens|length }})</span></h2>
+    {% for m in itens %}
+    <div class="tarefa-item">
+      <div class="tarefa-info">
+        <strong>{{ m.titulo }}</strong>
+        <p class="muted">
+          {{ m.obra.cliente }}
+          {% if m.responsavel %} · {{ m.responsavel.nome or m.responsavel.email }}{% endif %}
+          {% if m.data_agendada %} · {{ m.data_agendada.strftime("%d/%m/%Y") }}{% endif %}
+        </p>
+      </div>
+      <div class="tarefa-acoes">
+        <a class="btn btn-sm btn-ghost" href="{{ url_for('manutencao.obra_detalhe', obra_id=m.obra_entregue_id) }}">Abrir obra</a>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endmacro %}
+
+{{ grupo("⚠ Atrasadas", grupos.atrasadas, "grupo-atrasadas") }}
+{{ grupo("Esta semana", grupos.semana, "") }}
+{{ grupo("Próximas", grupos.proximas, "") }}
+
+<section class="tarefas-grupo">
+  <h2>Obras entregues</h2>
+  {% if obras %}
+  <div class="cards">
+    {% for o in obras %}
+    <div class="card">
+      <a class="card-main" href="{{ url_for('manutencao.obra_detalhe', obra_id=o.id) }}">
+        <h2>{{ o.cliente }}</h2>
+        {% if o.endereco %}<p class="muted">{{ o.endereco }}</p>{% endif %}
+        <p class="stats">
+          {% if o.data_entrega %}<span>Entregue em {{ o.data_entrega.strftime("%d/%m/%Y") }}</span>{% endif %}
+          <span>{{ o.manutencoes|length }} manutenção(ões)</span>
+        </p>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty"><p>Nenhuma obra entregue cadastrada ainda.</p></div>
+  {% endif %}
+</section>
+
+<dialog id="nova-obra-entregue" class="modal">
+  <form onsubmit="criarObraEntregue(event)">
+    <h3>Nova obra entregue</h3>
+    <label>Cliente / nome da obra
+      <input type="text" name="cliente" required placeholder="Ex.: Cobertura 14" autofocus>
+    </label>
+    <label>Endereço
+      <input type="text" name="endereco" placeholder="Rua, número - Cidade/UF">
+    </label>
+    <label>Data de entrega
+      <input type="date" name="data_entrega">
+    </label>
+    <label>Fim da garantia
+      <input type="date" name="fim_garantia">
+    </label>
+    <label>Observações
+      <input type="text" name="observacoes" placeholder="Anotações do cliente/obra">
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Cadastrar</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+async function criarObraEntregue(ev) {
+  ev.preventDefault();
+  const resp = await fetch("/manutencao/obras/criar", {
+    method: "POST", body: new FormData(ev.target),
+    headers: { "X-CSRFToken": csrfToken() },
+  });
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível cadastrar."); return;
+  }
+  location.reload();
+}
+</script>
+{% endblock %}

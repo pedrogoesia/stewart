@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Minhas manutenções — Stewart{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Ferramenta</span>
+    <h1>Minhas manutenções</h1>
+    <p class="muted">O que você tem para fazer, por semana.</p>
+  </div>
+</div>
+
+{% macro grupo(titulo, itens, classe) %}
+  {% if itens %}
+  <section class="tarefas-grupo {{ classe }}">
+    <h2>{{ titulo }} <span class="muted">({{ itens|length }})</span></h2>
+    {% for m in itens %}
+    <div class="tarefa-item">
+      <div class="tarefa-info">
+        <strong>{{ m.titulo }}</strong>
+        <p class="muted">
+          {{ m.obra.cliente }}{% if m.obra.endereco %} — {{ m.obra.endereco }}{% endif %}
+          {% if m.data_agendada %} · {{ m.data_agendada.strftime("%d/%m/%Y") }}{% endif %}
+          {% if m.detalhes %} · {{ m.detalhes }}{% endif %}
+        </p>
+      </div>
+      <div class="tarefa-acoes">
+        <button class="btn btn-sm btn-primary"
+                onclick="abrirConclusao({{ m.id }}, '{{ m.titulo|e }}')">Concluir</button>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endmacro %}
+
+{{ grupo("⚠ Atrasadas", grupos.atrasadas, "grupo-atrasadas") }}
+{{ grupo("Esta semana", grupos.semana, "") }}
+{{ grupo("Próximas", grupos.proximas, "") }}
+
+{% if not grupos.atrasadas and not grupos.semana and not grupos.proximas %}
+<div class="empty"><p>Nenhuma manutenção agendada para você. 🎉</p></div>
+{% endif %}
+
+<dialog id="concluir-manutencao" class="modal">
+  <form onsubmit="concluirManutencao(event)">
+    <h3 id="concluir-titulo">Concluir manutenção</h3>
+    <label>O que foi feito? <span class="muted">(obrigatório)</span>
+      <textarea name="descricao_realizada" required rows="4"
+                placeholder="Descreva o serviço realizado"></textarea>
+    </label>
+    <label>Fotos do serviço (opcional)
+      <input type="file" name="fotos" accept="image/*" multiple>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Concluir</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let manutencaoAtual = null;
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+function abrirConclusao(id, titulo) {
+  manutencaoAtual = id;
+  document.getElementById("concluir-titulo").textContent = `Concluir: ${titulo}`;
+  document.getElementById("concluir-manutencao").showModal();
+}
+async function concluirManutencao(ev) {
+  ev.preventDefault();
+  const form = ev.target;
+  // 1) Envia as fotos (se houver) — cada uma processada no servidor.
+  const arquivos = form.querySelector('input[name="fotos"]').files;
+  for (const arquivo of arquivos) {
+    const fd = new FormData();
+    fd.append("foto", arquivo);
+    const r = await fetch(`/manutencao/${manutencaoAtual}/fotos`, {
+      method: "POST", body: fd, headers: { "X-CSRFToken": csrfToken() },
+    });
+    if (!r.ok) { alert("Falha ao enviar uma das fotos."); return; }
+  }
+  // 2) Conclui com a descrição do serviço.
+  const fd = new FormData();
+  fd.append("descricao_realizada", form.descricao_realizada.value);
+  const resp = await fetch(`/manutencao/${manutencaoAtual}/concluir`, {
+    method: "POST", body: fd, headers: { "X-CSRFToken": csrfToken() },
+  });
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível concluir."); return;
+  }
+  location.reload();
+}
+</script>
+{% endblock %}

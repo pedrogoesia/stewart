@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}{{ obra.cliente }} — Manutenções — Stewart{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('manutencao.index') }}">← Manutenções</a>
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Obra entregue</span>
+    <h1>{{ obra.cliente }}</h1>
+    <p class="muted">
+      {% if obra.endereco %}{{ obra.endereco }}{% endif %}
+      {% if obra.data_entrega %} · entregue em {{ obra.data_entrega.strftime("%d/%m/%Y") }}{% endif %}
+      {% if obra.fim_garantia %} · garantia até {{ obra.fim_garantia.strftime("%d/%m/%Y") }}{% endif %}
+    </p>
+    {% if obra.observacoes %}<p class="muted">{{ obra.observacoes }}</p>{% endif %}
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('agendar-manutencao').showModal()">
+    + Agendar manutenção
+  </button>
+</div>
+
+{% macro linha(m, concluida=False) %}
+<div class="tarefa-item">
+  <div class="tarefa-info">
+    <strong>{{ m.titulo }}</strong>
+    <p class="muted">
+      {% if m.responsavel %}{{ m.responsavel.nome or m.responsavel.email }}{% else %}Sem responsável{% endif %}
+      {% if m.data_agendada %} · {{ m.data_agendada.strftime("%d/%m/%Y") }}{% endif %}
+      {% if m.detalhes %} · {{ m.detalhes }}{% endif %}
+    </p>
+    {% if concluida and m.descricao_realizada %}
+    <p class="muted">✓ {{ m.descricao_realizada }}</p>
+    {% endif %}
+    {% if m.fotos %}
+    <p>
+      {% for f in m.fotos %}
+      <a href="{{ url_for('manutencao.servir_foto', foto_id=f.id) }}" target="_blank">
+        <img src="{{ url_for('manutencao.servir_foto', foto_id=f.id) }}"
+             alt="Foto do serviço" style="height:56px;border-radius:6px;margin-right:4px">
+      </a>
+      {% endfor %}
+    </p>
+    {% endif %}
+  </div>
+  <div class="tarefa-acoes">
+    {% if not concluida %}
+    <button class="btn btn-sm btn-primary" onclick="abrirConclusao({{ m.id }}, '{{ m.titulo|e }}')">Concluir</button>
+    {% endif %}
+    <button class="btn btn-sm btn-ghost-danger"
+            onclick="if (confirm('Excluir a manutenção {{ m.titulo|e }}?')) excluirManutencao({{ m.id }})">Excluir</button>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro grupo(titulo, itens, classe) %}
+  {% if itens %}
+  <section class="tarefas-grupo {{ classe }}">
+    <h2>{{ titulo }} <span class="muted">({{ itens|length }})</span></h2>
+    {% for m in itens %}{{ linha(m) }}{% endfor %}
+  </section>
+  {% endif %}
+{% endmacro %}
+
+{{ grupo("⚠ Atrasadas", grupos.atrasadas, "grupo-atrasadas") }}
+{{ grupo("Esta semana", grupos.semana, "") }}
+{{ grupo("Próximas", grupos.proximas, "") }}
+
+{% if concluidas %}
+<section class="tarefas-grupo grupo-concluidas">
+  <h2>Histórico <span class="muted">({{ concluidas|length }})</span></h2>
+  {% for m in concluidas %}{{ linha(m, concluida=True) }}{% endfor %}
+</section>
+{% endif %}
+
+{% if not grupos.atrasadas and not grupos.semana and not grupos.proximas and not concluidas %}
+<div class="empty"><p>Nenhuma manutenção registrada para este cliente ainda.</p></div>
+{% endif %}
+
+<dialog id="agendar-manutencao" class="modal">
+  <form onsubmit="agendarManutencao(event)">
+    <h3>Agendar manutenção</h3>
+    <label>Título
+      <input type="text" name="titulo" required placeholder="Ex.: Revisar infiltração da sacada" autofocus>
+    </label>
+    <label>Detalhes (opcional)
+      <input type="text" name="detalhes" placeholder="O que precisa ser feito">
+    </label>
+    <label>Data
+      <input type="date" name="data_agendada">
+    </label>
+    <label>Responsável
+      <select name="responsavel_id">
+        <option value="">— Sem responsável —</option>
+        {% for u in executores %}
+        <option value="{{ u.id }}">{{ u.nome or u.email }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Agendar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="concluir-manutencao" class="modal">
+  <form onsubmit="concluirManutencao(event)">
+    <h3 id="concluir-titulo">Concluir manutenção</h3>
+    <label>O que foi feito? <span class="muted">(obrigatório)</span>
+      <textarea name="descricao_realizada" required rows="4"
+                placeholder="Descreva o serviço realizado"></textarea>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Concluir</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let manutencaoAtual = null;
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+async function postForm(url, fd) {
+  return fetch(url, { method: "POST", body: fd,
+                      headers: { "X-CSRFToken": csrfToken() } });
+}
+async function agendarManutencao(ev) {
+  ev.preventDefault();
+  const resp = await postForm("/manutencao/obra/{{ obra.id }}/agendar",
+                              new FormData(ev.target));
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível agendar."); return;
+  }
+  location.reload();
+}
+function abrirConclusao(id, titulo) {
+  manutencaoAtual = id;
+  document.getElementById("concluir-titulo").textContent = `Concluir: ${titulo}`;
+  document.getElementById("concluir-manutencao").showModal();
+}
+async function concluirManutencao(ev) {
+  ev.preventDefault();
+  const fd = new FormData();
+  fd.append("descricao_realizada", ev.target.descricao_realizada.value);
+  const resp = await postForm(`/manutencao/${manutencaoAtual}/concluir`, fd);
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível concluir."); return;
+  }
+  location.reload();
+}
+async function excluirManutencao(id) {
+  const resp = await postForm(`/manutencao/${id}/excluir`, new FormData());
+  if (!resp.ok) { alert("Não foi possível excluir."); return; }
+  location.reload();
+}
+</script>
+{% endblock %}
