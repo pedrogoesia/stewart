@@ -47,6 +47,10 @@
     <a class="sb-item {% if request.path == url_for('manutencao.index') %}ativo{% endif %}"
        href="{{ url_for('manutencao.index') }}">{{ icone('wrench') }} Manutenções</a>
     {% endif %}
+    {% if current_user.pode_ver_ferramenta('compras') %}
+    <a class="sb-item {% if request.path == url_for('compras.index') %}ativo{% endif %}"
+       href="{{ url_for('compras.index') }}">{{ icone('receipt') }} Compras</a>
+    {% endif %}
 
     {% if current_user.is_admin %}
     <div class="sb-sec">Administração</div>

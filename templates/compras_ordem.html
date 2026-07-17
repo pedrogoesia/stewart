@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Ordem {{ "%04d"|format(ordem.id) }} — Compras — Stewart{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('compras.index') }}">← Compras</a>
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Ordem de compra</span>
+    <h1>Ordem {{ "%04d"|format(ordem.id) }} — {{ ordem.fornecedor.nome }}</h1>
+    <p class="muted">{{ ordem.pedido.obra_nome }}
+      {% if ordem.data %} · {{ ordem.data.strftime("%d/%m/%Y") }}{% endif %}</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('compras.baixar_pdf', ordem_id=ordem.id) }}">⬇ Baixar PDF</a>
+</div>
+
+<form onsubmit="salvarOrdem(event)">
+<section class="tarefas-grupo">
+  <h2>Itens e preços</h2>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>#</th><th>Descrição</th><th>Unid</th><th>Quant</th>
+                 <th>Valor unit. (R$)</th><th>Prazo de entrega</th></tr></thead>
+      <tbody>
+        {% for i in ordem.itens %}
+        <tr>
+          <td>{{ loop.index }}</td><td>{{ i.descricao }}</td>
+          <td>{{ i.unidade }}</td>
+          <td>{{ i.quantidade|int if i.quantidade == i.quantidade|int else i.quantidade }}</td>
+          <td><input type="text" name="valor_unit_{{ i.id }}" size="9"
+                     value="{{ '%.2f'|format(i.valor_unit)|replace('.', ',') if i.valor_unit is not none else '' }}"
+                     placeholder="0,00"></td>
+          <td><input type="date" name="prazo_{{ i.id }}"
+                     value="{{ i.prazo_entrega.isoformat() if i.prazo_entrega else '' }}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="field-row" style="margin-top:10px">
+    <label>Frete (R$)
+      <input type="text" name="frete" value="{{ '%.2f'|format(ordem.frete)|replace('.', ',') }}">
+    </label>
+    <label>Desconto (R$)
+      <input type="text" name="desconto" value="{{ '%.2f'|format(ordem.desconto)|replace('.', ',') }}">
+    </label>
+    <label>Condição de pagamento
+      <input type="text" name="cond_pagamento" value="{{ ordem.cond_pagamento }}"
+             placeholder="Ex.: DEPÓSITO X 28 DIAS">
+    </label>
+  </div>
+  <label>Observações
+    <input type="text" name="obs" value="{{ ordem.obs }}">
+  </label>
+  <p><strong>Subtotal:</strong> R$ {{ "%.2f"|format(ordem.subtotal())|replace(".", ",") }}
+     &nbsp;·&nbsp; <strong>Total:</strong> R$ {{ "%.2f"|format(ordem.total())|replace(".", ",") }}</p>
+</section>
+
+<section class="tarefas-grupo">
+  <h2>Faturamento e entrega</h2>
+  <div class="field-row">
+    <label>Faturamento — razão social / nome
+      <input type="text" name="faturamento_razao" value="{{ ordem.faturamento_razao }}">
+    </label>
+    <label>CNPJ/CPF
+      <input type="text" name="faturamento_cnpj_cpf" value="{{ ordem.faturamento_cnpj_cpf }}">
+    </label>
+  </div>
+  <div class="field-row">
+    <label>Faturamento — endereço
+      <input type="text" name="faturamento_endereco" value="{{ ordem.faturamento_endereco }}">
+    </label>
+    <label>CEP
+      <input type="text" name="faturamento_cep" value="{{ ordem.faturamento_cep }}">
+    </label>
+  </div>
+  <div class="field-row">
+    <label>Entrega — endereço
+      <input type="text" name="entrega_endereco" value="{{ ordem.entrega_endereco }}">
+    </label>
+    <label>CEP
+      <input type="text" name="entrega_cep" value="{{ ordem.entrega_cep }}">
+    </label>
+  </div>
+  <button class="btn btn-primary" type="submit">Salvar ordem</button>
+</section>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+async function salvarOrdem(ev) {
+  ev.preventDefault();
+  const resp = await fetch("/compras/ordem/{{ ordem.id }}/editar", {
+    method: "POST", body: new FormData(ev.target),
+    headers: { "X-CSRFToken": csrfToken() },
+  });
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível salvar."); return;
+  }
+  location.reload();
+}
+</script>
+{% endblock %}

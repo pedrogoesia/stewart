@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Compras — Stewart{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Ferramenta</span>
+    <h1>Compras</h1>
+    <p class="muted">
+      {% if setor %}Fila de pedidos de material e ordens de compra.
+      {% else %}Seus pedidos de material para o setor de compras.{% endif %}
+    </p>
+  </div>
+  <div style="display:flex;gap:8px">
+    {% if setor %}
+    <button class="btn" onclick="document.getElementById('novo-fornecedor').showModal()">+ Fornecedor</button>
+    {% endif %}
+    <button class="btn btn-primary" onclick="document.getElementById('novo-pedido').showModal()">+ Pedido de material</button>
+  </div>
+</div>
+
+{% macro linha_pedido(p) %}
+<div class="tarefa-item">
+  <div class="tarefa-info">
+    <strong>{{ p.obra_nome }}</strong>
+    <p class="muted">
+      Pedido nº {{ p.id }} · {{ p.itens|length }} item(ns)
+      {% if p.solicitante %} · {{ p.solicitante.nome or p.solicitante.email }}{% endif %}
+      {% if p.data_prevista %} · previsto p/ {{ p.data_prevista.strftime("%d/%m/%Y") }}{% endif %}
+      {% if p.status == "atendido" %} · ✓ atendido{% endif %}
+    </p>
+  </div>
+  <div class="tarefa-acoes">
+    <a class="btn btn-sm" href="{{ url_for('compras.pedido_detalhe', pedido_id=p.id) }}">Abrir</a>
+  </div>
+</div>
+{% endmacro %}
+
+{% if setor %}
+<section class="tarefas-grupo">
+  <h2>Pedidos abertos <span class="muted">({{ abertos|length }})</span></h2>
+  {% for p in abertos %}{{ linha_pedido(p) }}{% endfor %}
+  {% if not abertos %}<div class="empty"><p>Nenhum pedido aguardando. 🎉</p></div>{% endif %}
+</section>
+<section class="tarefas-grupo">
+  <h2>Ordens de compra recentes</h2>
+  {% for o in ordens %}
+  <div class="tarefa-item">
+    <div class="tarefa-info">
+      <strong>Ordem {{ "%04d"|format(o.id) }} — {{ o.fornecedor.nome }}</strong>
+      <p class="muted">{{ o.pedido.obra_nome }} · total R$ {{ "%.2f"|format(o.total())|replace(".", ",") }}</p>
+    </div>
+    <div class="tarefa-acoes">
+      <a class="btn btn-sm" href="{{ url_for('compras.ordem_detalhe', ordem_id=o.id) }}">Abrir</a>
+      <a class="btn btn-sm btn-primary" href="{{ url_for('compras.baixar_pdf', ordem_id=o.id) }}">PDF</a>
+    </div>
+  </div>
+  {% endfor %}
+  {% if not ordens %}<div class="empty"><p>Nenhuma ordem emitida ainda.</p></div>{% endif %}
+</section>
+{% else %}
+<section class="tarefas-grupo">
+  <h2>Meus pedidos</h2>
+  {% for p in meus %}{{ linha_pedido(p) }}{% endfor %}
+  {% if not meus %}
+  <div class="empty">
+    <p>Você ainda não fez nenhum pedido de material.</p>
+    <button class="btn btn-primary" onclick="document.getElementById('novo-pedido').showModal()">+ Fazer primeiro pedido</button>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<dialog id="novo-pedido" class="modal">
+  <form onsubmit="criarPedido(event)">
+    <h3>Pedido de material</h3>
+    <label>Obra
+      <input type="text" name="obra_nome" required list="obras-lista"
+             placeholder="Nome da obra do pedido">
+      <datalist id="obras-lista">
+        {% for o in obras %}<option value="{{ o.nome }}">{% endfor %}
+      </datalist>
+    </label>
+    <label>Data prevista (opcional)
+      <input type="date" name="data_prevista">
+    </label>
+    <div id="itens-pedido">
+      <div class="item-linha" style="display:flex;gap:6px;margin:6px 0">
+        <input type="text" name="descricao" required placeholder="Material (ex.: Cimento CP-II 50kg)" style="flex:3">
+        <input type="text" name="unidade" placeholder="UNID" style="flex:1;max-width:80px">
+        <input type="text" name="quantidade" required placeholder="Qtde" style="flex:1;max-width:80px">
+      </div>
+    </div>
+    <button type="button" class="btn btn-sm btn-ghost" onclick="addItem()">+ Adicionar item</button>
+    <label>Observações (opcional)
+      <input type="text" name="observacoes" placeholder="Detalhes do pedido">
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Enviar pedido</button>
+    </div>
+  </form>
+</dialog>
+
+{% if setor %}
+<dialog id="novo-fornecedor" class="modal">
+  <form onsubmit="criarFornecedor(event)">
+    <h3>Novo fornecedor</h3>
+    <label>Nome / razão social
+      <input type="text" name="nome" required placeholder="Ex.: Materiais Cruzada LTDA">
+    </label>
+    <label>CNPJ
+      <input type="text" name="cnpj" placeholder="00.000.000/0000-00">
+    </label>
+    <label>Telefone
+      <input type="text" name="telefone" placeholder="(21) 0000-0000">
+    </label>
+    <label>E-mail
+      <input type="email" name="email" placeholder="vendas@fornecedor.com.br">
+    </label>
+    <label>Contato
+      <input type="text" name="contato" placeholder="Nome de quem atende">
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Cadastrar</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+function addItem() {
+  const linha = document.querySelector("#itens-pedido .item-linha");
+  const nova = linha.cloneNode(true);
+  nova.querySelectorAll("input").forEach(i => i.value = "");
+  document.getElementById("itens-pedido").appendChild(nova);
+}
+async function postForm(url, fd) {
+  return fetch(url, { method: "POST", body: fd,
+                      headers: { "X-CSRFToken": csrfToken() } });
+}
+async function criarPedido(ev) {
+  ev.preventDefault();
+  const resp = await postForm("/compras/pedidos/criar", new FormData(ev.target));
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível enviar o pedido."); return;
+  }
+  location.reload();
+}
+async function criarFornecedor(ev) {
+  ev.preventDefault();
+  const resp = await postForm("/compras/fornecedores/criar", new FormData(ev.target));
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível cadastrar."); return;
+  }
+  location.reload();
+}
+</script>
+{% endblock %}

@@ -1,50 +1,64 @@
-# Spec — Fase 3: Setor de Compras (RASCUNHO — aguardando insumos)
+# Spec — Fase 3: Setor de Compras (v1)
 
-> Decisão de produto (17/07/2026): os pedidos entram **pela plataforma**
-> (formulário estruturado), não por leitura de email. Elimina o email de
-> entrada e torna o PDF de cotação automático.
+> Decisões (17/07/2026): pedidos entram **pela plataforma**; a Ordem de
+> Compra sai em **PDF para baixar e enviar manualmente** (sem SMTP no v1).
+> Insumos recebidos: planilha real "Ordem de compra 196 - Cruzada", email de
+> pedido típico (Gestão de Obras) e orçamento de fornecedor (STAN Elétrica).
 
 ## Objetivo
 
-Eliminar o PDF manual do setor de compras. Fluxo alvo:
+Substituir a planilha manual: o solicitante (engenheiro/gestão de obras)
+registra o pedido de material na plataforma; o setor de compras transforma o
+pedido em Ordem de Compra com fornecedor e preços e baixa o **PDF no layout
+oficial** para enviar ao fornecedor/financeiro.
 
-1. Engenheiro abre um **pedido de compra** na plataforma (obra, itens com
-   material/quantidade/unidade, observações).
-2. O setor de compras vê a fila de pedidos, agrupa itens e gera o **PDF de
-   cotação** automaticamente para enviar aos fornecedores.
-3. As respostas dos fornecedores são registradas (preço por item, prazo,
-   condições) e o sistema monta o **comparativo de preços**.
-4. Com o vencedor escolhido, o sistema gera o **PDF final** (melhor preço +
-   dados do comprador) para envio ao financeiro.
+## Papéis e acesso
 
-## Insumos pendentes (bloqueiam a spec final — pedir ao usuário)
+- Novo papel `compras` ("Setor de Compras") + ferramenta `compras`.
+- **Solicitante** (qualquer usuário com a ferramenta): cria pedidos com
+  itens; vê e acompanha **apenas os próprios** pedidos.
+- **Setor** (papel `compras` ou admin): vê a fila de todos os pedidos,
+  cadastra fornecedores, cria/edita ordens de compra e gera o PDF.
+- Sem a ferramenta → 403. Pedido de outro solicitante → 404.
 
-- [ ] **Exemplo do PDF atual** feito à mão (modelo a reproduzir: campos,
-      logo, assinaturas).
-- [ ] Exemplo de **email de pedido típico** de um engenheiro (para conferir
-      se o formulário cobre os campos reais).
-- [ ] Lista de **dados do comprador** que entram no PDF final.
-- [ ] Envio de email pela plataforma (cotação → fornecedores; PDF final →
-      financeiro): v1 pode ser **baixar o PDF e enviar manualmente**?
-      Automatizar exige serviço SMTP/API (Resend, SES…) e domínio próprio.
-- [ ] Existe alçada/aprovação por valor antes de ir ao financeiro?
+## Modelo de dados (tabelas novas, só `create_all`)
 
-## Esboço técnico (a confirmar após os insumos)
+- `Fornecedor`: `nome, cnpj, telefone, email, contato, criado_em`.
+- `PedidoCompra`: `obra_id (FK obras, opcional), obra_nome, solicitante_id,
+  data_prevista, observacoes, status (aberto | atendido), criado_em`.
+- `ItemPedido`: `pedido_id, descricao, unidade, quantidade, ordem`.
+- `OrdemCompra`: `numero (= id), pedido_id, fornecedor_id, data,
+  faturamento_razao, faturamento_cnpj_cpf, faturamento_endereco,
+  faturamento_cep, entrega_endereco, entrega_cep, frete, desconto,
+  cond_pagamento, obs, criado_em` — itens copiados do pedido em `ItemOrdem`
+  (`descricao, unidade, quantidade, valor_unit, prazo_entrega, ordem`).
+- Totais calculados (nunca digitados): subtotal = Σ quant×valor_unit;
+  total = subtotal + frete − desconto.
 
-- Papel novo `compras` ("Setor de Compras") + ferramenta `compras`.
-- Modelos: `PedidoCompra` (obra, solicitante, status: aberto → em cotação →
-  fechado), `ItemPedido` (material, quantidade, unidade), `Fornecedor`
-  (nome, email, telefone), `Cotacao` (fornecedor, preços por item, prazo).
-- Geração de PDF no servidor (avaliar `reportlab` — dependência nova).
-- Permissões no padrão das demais ferramentas: engenheiro cria pedido e
-  acompanha os seus; setor de compras gerencia tudo; 404 para quem não deve
-  ver, testes de isolamento desde o primeiro commit.
+## PDF da Ordem de Compra (layout da planilha real)
 
-## Critérios de aceite (rascunho)
+Cabeçalho "Ordem de compra - NNNN" · bloco do fornecedor (razão, CNPJ,
+telefone/email, contato) · Dados para faturamento × Dados de entrega ·
+linha nº/data/obra/solicitante · tabela de itens (Item, Descrição, unid,
+Quant, Valor unit., Valor total, Prazo de entrega) · SUB TOTAL/FRETE/
+DESCONTO/TOTAL · OBS e COND. DE PAG. · rodapé fixo do financeiro
+(NF/boleto → financeiro@stewartengenharia.com.br, cópia ao comprador,
+endereço de cobrança da Stewart). Gerado com `reportlab`.
 
-1. Engenheiro cria pedido com itens; vê só os pedidos dele.
-2. Setor de compras vê a fila, gera PDF de cotação de 1+ pedidos.
-3. Registro de cotações por fornecedor e comparativo com menor preço por item.
-4. PDF final gerado com o vencedor e os dados do comprador.
-5. Isolamento: engenheiro não vê pedido de outro; sem a ferramenta, 403.
-6. Suíte inteira verde.
+## Critérios de aceite (viram testes)
+
+1. Solicitante cria pedido com itens (descrição/unidade/quantidade); pedido
+   sem itens ou com item sem descrição → 400.
+2. Solicitante vê só os seus pedidos; pedido de outro → 404; setor vê todos.
+3. Só o setor cadastra fornecedor (403 p/ solicitante); nome obrigatório.
+4. Setor cria ordem a partir de um pedido (itens copiados; pedido vira
+   "atendido"); solicitante tentando → 403.
+5. Setor edita preços/frete/desconto/condições; totais calculados certos.
+6. PDF da ordem: 200, arquivo PDF válido, só para o setor.
+7. Sem a ferramenta `compras` → 403 em tudo. Suíte inteira verde.
+
+## Fora de escopo (v1 → v2)
+
+Comparativo automático de cotações entre fornecedores; leitura do orçamento
+do fornecedor (PDF) com IA; envio de email pela plataforma (SMTP); alçada de
+aprovação por valor.

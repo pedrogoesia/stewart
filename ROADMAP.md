@@ -58,11 +58,12 @@ emails), geração automática do PDF de cotação, registro das respostas dos
 fornecedores, comparativo de preços, PDF final + envio por email ao
 financeiro.
 
-**Decisão tomada (17/07/2026):** pedidos entram *pela plataforma* (formulário
-estruturado). Spec rascunhada em `specs/fase3-compras.md` — implementação
-**bloqueada nos insumos**: exemplo do PDF atual, email de pedido típico,
-dados do comprador e decisão sobre envio automático de email (v1 pode ser
-baixar o PDF e enviar manualmente).
+**✅ v1 implementada (17/07/2026)** com base nos insumos reais (planilha
+"Ordem de compra 196", email de pedido, orçamento de fornecedor). Spec:
+`specs/fase3-compras.md`. Pedidos pela plataforma → ordem de compra com
+fornecedor/preços → **PDF no layout oficial** para baixar e enviar
+manualmente. v2 (futuro): comparativo automático de cotações, leitura do
+orçamento do fornecedor com IA, envio de email (SMTP), alçada de aprovação.
 
 ---
 

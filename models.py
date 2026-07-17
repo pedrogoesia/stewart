@@ -24,6 +24,7 @@ FERRAMENTAS = {
     "atas": "Assistente de Atas",
     "tarefas": "Agenda de Tarefas",
     "manutencao": "Manutenções",
+    "compras": "Compras",
 }
 TODAS_FERRAMENTAS = ",".join(FERRAMENTAS)
 
@@ -35,6 +36,7 @@ PAPEIS = {
     "encarregado": "Encarregado",
     "estagiario": "Estagiário",
     "manutencao": "Setor de Manutenção",
+    "compras": "Setor de Compras",
 }
 
 # Vínculo usuário↔obra: define quais obras cada pessoa vê na Agenda de
@@ -211,6 +213,103 @@ class FotoManutencao(db.Model):
 
 
 # ---------------------------------------------------------------------------
+# Ferramenta: Compras (pedidos de material e ordens de compra)
+# ---------------------------------------------------------------------------
+class Fornecedor(db.Model):
+    __tablename__ = "fornecedores"
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(255), nullable=False)
+    cnpj = db.Column(db.String(30), default="")
+    telefone = db.Column(db.String(40), default="")
+    email = db.Column(db.String(255), default="")
+    contato = db.Column(db.String(255), default="")
+    criado_em = db.Column(db.String(40), nullable=False)
+
+
+class PedidoCompra(db.Model):
+    __tablename__ = "pedidos_compra"
+    id = db.Column(db.Integer, primary_key=True)
+    # Obra pode ser escolhida do cadastro ou digitada livre (obra externa).
+    obra_id = db.Column(db.Integer, db.ForeignKey("obras.id"))
+    obra_nome = db.Column(db.String(255), nullable=False)
+    solicitante_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"),
+                               index=True)
+    data_prevista = db.Column(db.Date)
+    observacoes = db.Column(db.Text, default="")
+    status = db.Column(db.String(20), nullable=False, default="aberto")
+    criado_em = db.Column(db.String(40), nullable=False)
+
+    solicitante = db.relationship("Usuario", foreign_keys=[solicitante_id])
+
+
+class ItemPedido(db.Model):
+    __tablename__ = "itens_pedido"
+    id = db.Column(db.Integer, primary_key=True)
+    pedido_id = db.Column(db.Integer, db.ForeignKey("pedidos_compra.id"),
+                          nullable=False, index=True)
+    descricao = db.Column(db.String(500), nullable=False)
+    unidade = db.Column(db.String(20), default="UNID")
+    quantidade = db.Column(db.Float, nullable=False, default=1)
+    ordem = db.Column(db.Integer, nullable=False, default=0)
+
+    pedido = db.relationship(
+        "PedidoCompra",
+        backref=db.backref("itens", cascade="all, delete-orphan",
+                           order_by="ItemPedido.ordem"))
+
+
+class OrdemCompra(db.Model):
+    __tablename__ = "ordens_compra"
+    id = db.Column(db.Integer, primary_key=True)   # nº da ordem = id
+    pedido_id = db.Column(db.Integer, db.ForeignKey("pedidos_compra.id"),
+                          nullable=False, index=True)
+    fornecedor_id = db.Column(db.Integer, db.ForeignKey("fornecedores.id"),
+                              nullable=False)
+    data = db.Column(db.Date)
+    faturamento_razao = db.Column(db.String(255), default="")
+    faturamento_cnpj_cpf = db.Column(db.String(30), default="")
+    faturamento_endereco = db.Column(db.String(255), default="")
+    faturamento_cep = db.Column(db.String(20), default="")
+    entrega_endereco = db.Column(db.String(255), default="")
+    entrega_cep = db.Column(db.String(20), default="")
+    frete = db.Column(db.Float, nullable=False, default=0)
+    desconto = db.Column(db.Float, nullable=False, default=0)
+    cond_pagamento = db.Column(db.String(255), default="")
+    obs = db.Column(db.Text, default="")
+    criado_em = db.Column(db.String(40), nullable=False)
+
+    pedido = db.relationship(
+        "PedidoCompra",
+        backref=db.backref("ordens", cascade="all, delete-orphan"))
+    fornecedor = db.relationship("Fornecedor")
+
+    def subtotal(self):
+        return sum(i.quantidade * (i.valor_unit or 0) for i in self.itens)
+
+    def total(self):
+        return self.subtotal() + (self.frete or 0) - (self.desconto or 0)
+
+
+class ItemOrdem(db.Model):
+    __tablename__ = "itens_ordem"
+    id = db.Column(db.Integer, primary_key=True)
+    ordem_compra_id = db.Column(db.Integer,
+                                db.ForeignKey("ordens_compra.id"),
+                                nullable=False, index=True)
+    descricao = db.Column(db.String(500), nullable=False)
+    unidade = db.Column(db.String(20), default="UNID")
+    quantidade = db.Column(db.Float, nullable=False, default=1)
+    valor_unit = db.Column(db.Float)
+    prazo_entrega = db.Column(db.Date)
+    ordem = db.Column(db.Integer, nullable=False, default=0)
+
+    ordem_compra = db.relationship(
+        "OrdemCompra",
+        backref=db.backref("itens", cascade="all, delete-orphan",
+                           order_by="ItemOrdem.ordem"))
+
+
+# ---------------------------------------------------------------------------
 # Auditoria: quem fez o quê e quando
 # ---------------------------------------------------------------------------
 class Atividade(db.Model):
@@ -338,6 +437,28 @@ def manutencao_do_usuario(manutencao_id):
                          or m.responsavel_id == current_user.id):
         abort(404)
     return m
+
+
+def eh_setor_compras(usuario=None):
+    """Setor de Compras: admin ou papel 'compras'."""
+    u = usuario if usuario is not None else current_user
+    return u.is_authenticated and (u.is_admin or u.papel == "compras")
+
+
+def pedido_do_usuario(pedido_id):
+    """Setor vê qualquer pedido; solicitante só os próprios."""
+    p = db.session.get(PedidoCompra, pedido_id)
+    if p is None or not (eh_setor_compras()
+                         or p.solicitante_id == current_user.id):
+        abort(404)
+    return p
+
+
+def ordem_do_setor(ordem_id):
+    ordem = db.session.get(OrdemCompra, ordem_id)
+    if ordem is None or not eh_setor_compras():
+        abort(404)
+    return ordem
 
 
 def senha_fraca(senha):

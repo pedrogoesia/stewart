@@ -19,3 +19,5 @@ openai>=1.97
 python-dotenv>=1.0
 # Opcional: suporte a fotos HEIC/HEIF de iPhone
 pillow-heif>=0.16
+# PDF da Ordem de Compra (ferramenta Compras)
+reportlab>=4.0

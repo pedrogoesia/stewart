@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Pedido {{ pedido.id }} — Compras — Stewart{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('compras.index') }}">← Compras</a>
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Pedido de material nº {{ pedido.id }}
+      {% if pedido.status == "atendido" %} · ✓ atendido{% endif %}</span>
+    <h1>{{ pedido.obra_nome }}</h1>
+    <p class="muted">
+      {% if pedido.solicitante %}Solicitante: {{ pedido.solicitante.nome or pedido.solicitante.email }}{% endif %}
+      {% if pedido.data_prevista %} · previsto p/ {{ pedido.data_prevista.strftime("%d/%m/%Y") }}{% endif %}
+    </p>
+    {% if pedido.observacoes %}<p class="muted">{{ pedido.observacoes }}</p>{% endif %}
+  </div>
+  {% if setor and pedido.status == "aberto" %}
+  <button class="btn btn-primary" onclick="document.getElementById('nova-ordem').showModal()">
+    Gerar ordem de compra
+  </button>
+  {% endif %}
+</div>
+
+<section class="tarefas-grupo">
+  <h2>Itens</h2>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>#</th><th>Descrição</th><th>Unid</th><th>Quant</th></tr></thead>
+      <tbody>
+        {% for i in pedido.itens %}
+        <tr><td>{{ loop.index }}</td><td>{{ i.descricao }}</td>
+            <td>{{ i.unidade }}</td><td>{{ i.quantidade|int if i.quantidade == i.quantidade|int else i.quantidade }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if pedido.ordens %}
+<section class="tarefas-grupo">
+  <h2>Ordens geradas</h2>
+  {% for o in pedido.ordens %}
+  <div class="tarefa-item">
+    <div class="tarefa-info">
+      <strong>Ordem {{ "%04d"|format(o.id) }} — {{ o.fornecedor.nome }}</strong>
+      <p class="muted">total R$ {{ "%.2f"|format(o.total())|replace(".", ",") }}</p>
+    </div>
+    {% if setor %}
+    <div class="tarefa-acoes">
+      <a class="btn btn-sm" href="{{ url_for('compras.ordem_detalhe', ordem_id=o.id) }}">Abrir</a>
+      <a class="btn btn-sm btn-primary" href="{{ url_for('compras.baixar_pdf', ordem_id=o.id) }}">PDF</a>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if setor and pedido.status == "aberto" %}
+<dialog id="nova-ordem" class="modal">
+  <form onsubmit="criarOrdem(event)">
+    <h3>Gerar ordem de compra</h3>
+    <label>Fornecedor
+      <select name="fornecedor_id" required>
+        <option value="">— Escolha —</option>
+        {% for f in fornecedores %}
+        <option value="{{ f.id }}">{{ f.nome }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Faturamento — razão social / nome
+      <input type="text" name="faturamento_razao" placeholder="Ex.: nome do cliente da obra">
+    </label>
+    <label>Faturamento — CNPJ/CPF
+      <input type="text" name="faturamento_cnpj_cpf">
+    </label>
+    <label>Faturamento — endereço
+      <input type="text" name="faturamento_endereco">
+    </label>
+    <label>Faturamento — CEP
+      <input type="text" name="faturamento_cep">
+    </label>
+    <label>Entrega — endereço
+      <input type="text" name="entrega_endereco">
+    </label>
+    <label>Entrega — CEP
+      <input type="text" name="entrega_cep">
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Gerar</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+async function criarOrdem(ev) {
+  ev.preventDefault();
+  const resp = await fetch("/compras/pedido/{{ pedido.id }}/ordem/criar", {
+    method: "POST", body: new FormData(ev.target),
+    headers: { "X-CSRFToken": csrfToken() },
+  });
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível gerar a ordem."); return;
+  }
+  const corpo = await resp.json();
+  location.href = `/compras/ordem/${corpo.id}`;
+}
+</script>
+{% endblock %}
