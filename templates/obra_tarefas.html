@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone %}
+{% block title %}Tarefas — {{ obra.nome }} — Stewart{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('tarefas.index') }}">← Minha semana</a>
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Agenda de Tarefas</span>
+    <h1>{{ obra.nome }}</h1>
+    {% if obra.endereco %}<p class="muted">{{ obra.endereco }}</p>{% endif %}
+  </div>
+  {% if pode_gerenciar %}
+  <button class="btn btn-primary" onclick="document.getElementById('nova-tarefa').showModal()">
+    + Nova tarefa
+  </button>
+  {% endif %}
+</div>
+
+{% macro linha_tarefa(t) %}
+<div class="tarefa-item">
+  <div class="tarefa-info">
+    <strong>{{ t.titulo }}</strong>
+    <p class="muted">
+      {% if t.responsavel %}{{ t.responsavel.nome or t.responsavel.email }}{% else %}Sem responsável{% endif %}
+      {% if t.prazo %} · prazo {{ t.prazo.strftime("%d/%m/%Y") }}{% endif %}
+      {% if t.status == "em_andamento" %} · em andamento{% endif %}
+      {% if t.descricao %} · {{ t.descricao }}{% endif %}
+    </p>
+  </div>
+  <div class="tarefa-acoes">
+    {% if t.status != "concluida" %}
+      {% if pode_gerenciar or t.responsavel_id == current_user.id %}
+        {% if t.status == "pendente" %}
+        <button class="btn btn-sm" onclick="mudarStatus({{ t.id }}, 'em_andamento')">Iniciar</button>
+        {% endif %}
+        <button class="btn btn-sm btn-primary" onclick="mudarStatus({{ t.id }}, 'concluida')">Concluir</button>
+      {% endif %}
+    {% else %}
+      {% if pode_gerenciar or t.responsavel_id == current_user.id %}
+      <button class="btn btn-sm" onclick="mudarStatus({{ t.id }}, 'pendente')">Reabrir</button>
+      {% endif %}
+    {% endif %}
+    {% if pode_gerenciar %}
+    <button class="btn btn-sm btn-ghost-danger"
+            onclick="if (confirm('Excluir a tarefa {{ t.titulo }}?')) excluirTarefa({{ t.id }})">Excluir</button>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro grupo(titulo, tarefas, classe) %}
+  {% if tarefas %}
+  <section class="tarefas-grupo {{ classe }}">
+    <h2>{{ titulo }} <span class="muted">({{ tarefas|length }})</span></h2>
+    {% for t in tarefas %}{{ linha_tarefa(t) }}{% endfor %}
+  </section>
+  {% endif %}
+{% endmacro %}
+
+{{ grupo("⚠ Atrasadas", grupos.atrasadas, "grupo-atrasadas") }}
+{{ grupo("Esta semana", grupos.semana, "") }}
+{{ grupo("Próximas", grupos.proximas, "") }}
+{{ grupo("Concluídas", concluidas, "grupo-concluidas") }}
+
+{% if not grupos.atrasadas and not grupos.semana and not grupos.proximas and not concluidas %}
+<div class="empty">
+  <p>Nenhuma tarefa nesta obra ainda.</p>
+  {% if pode_gerenciar %}
+  <button class="btn btn-primary" onclick="document.getElementById('nova-tarefa').showModal()">
+    + Criar primeira tarefa
+  </button>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if pode_gerenciar %}
+<dialog id="nova-tarefa" class="modal">
+  <form onsubmit="criarTarefa(event)">
+    <h3>Nova tarefa</h3>
+    <label>Título
+      <input type="text" name="titulo" required placeholder="Ex.: Conferir prumo da alvenaria" autofocus>
+    </label>
+    <label>Descrição (opcional)
+      <input type="text" name="descricao" placeholder="Detalhes da tarefa">
+    </label>
+    <label>Prazo (opcional)
+      <input type="date" name="prazo">
+    </label>
+    <label>Responsável (opcional)
+      <select name="responsavel_id">
+        <option value="">— Sem responsável —</option>
+        {% for m in membros %}
+        <option value="{{ m.id }}">{{ m.nome or m.email }}{% if m.papel %} ({{ papeis[m.papel] }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Criar</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+async function postForm(url, fd) {
+  return fetch(url, { method: "POST", body: fd,
+                      headers: { "X-CSRFToken": csrfToken() } });
+}
+async function mudarStatus(id, status) {
+  const fd = new FormData();
+  fd.append("status", status);
+  const resp = await postForm(`/tarefa/${id}/status`, fd);
+  if (!resp.ok) { alert("Não foi possível atualizar a tarefa."); return; }
+  location.reload();
+}
+async function excluirTarefa(id) {
+  const resp = await postForm(`/tarefa/${id}/excluir`, new FormData());
+  if (!resp.ok) { alert("Não foi possível excluir a tarefa."); return; }
+  location.reload();
+}
+async function criarTarefa(ev) {
+  ev.preventDefault();
+  const form = ev.target;
+  const resp = await postForm(`/obra/{{ obra.id }}/tarefas/criar`, new FormData(form));
+  if (!resp.ok) {
+    const corpo = await resp.json().catch(() => ({}));
+    alert(corpo.erro || "Não foi possível criar a tarefa.");
+    return;
+  }
+  location.reload();
+}
+</script>
+{% endblock %}

@@ -24,6 +24,14 @@
       <label>Senha inicial
         <input type="text" name="senha" placeholder="senha provisória" required>
       </label>
+      <label>Papel na equipe
+        <select name="papel">
+          <option value="">— Sem papel —</option>
+          {% for slug, nome in papeis.items() %}
+          <option value="{{ slug }}">{{ nome }}</option>
+          {% endfor %}
+        </select>
+      </label>
       <label class="check-inline">
         <input type="checkbox" name="is_admin"> Administrador
       </label>
@@ -50,7 +58,7 @@
   <div class="tabela-wrap">
     <table class="tabela">
       <thead>
-        <tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Ferramentas</th><th>Obras</th><th>Ações</th></tr>
+        <tr><th>Nome</th><th>Email</th><th>Tipo</th><th>Ferramentas</th><th>Equipe (papel e obras)</th><th>Ações</th></tr>
       </thead>
       <tbody>
         {% for u in usuarios %}
@@ -75,7 +83,28 @@
             </form>
             {% endif %}
           </td>
-          <td>{{ u.obras|length }}</td>
+          <td>
+            <form method="post" action="{{ url_for('auth.admin_equipe', user_id=u.id) }}"
+                  class="perm-cel">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <select name="papel">
+                <option value="">— Sem papel —</option>
+                {% for slug, nome in papeis.items() %}
+                <option value="{{ slug }}" {% if u.papel == slug %}selected{% endif %}>{{ nome }}</option>
+                {% endfor %}
+              </select>
+              {% if obras %}
+              {% set vinculadas = u.obras_membro | map(attribute='id') | list %}
+              {% for o in obras %}
+              <label class="perm-item">
+                <input type="checkbox" name="obras" value="{{ o.id }}"
+                       {% if o.id in vinculadas %}checked{% endif %}> {{ o.nome }}
+              </label>
+              {% endfor %}
+              {% endif %}
+              <button class="btn btn-sm btn-ghost" type="submit">Salvar</button>
+            </form>
+          </td>
           <td class="acoes-cel">
             <form method="post" action="{{ url_for('auth.admin_redefinir_senha', user_id=u.id) }}"
                   class="acao-senha"

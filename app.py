@@ -103,9 +103,11 @@ def create_app():
     from blueprints.auth import bp as auth_bp
     from blueprints.relatorios import bp as relatorios_bp
     from blueprints.atas import bp as atas_bp
+    from blueprints.tarefas import bp as tarefas_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(relatorios_bp)
     app.register_blueprint(atas_bp)
+    app.register_blueprint(tarefas_bp)
 
     @app.context_processor
     def injetar_assets():
@@ -202,6 +204,14 @@ def _migrar_colunas():
             "ALTER TABLE comodos ADD COLUMN geral BOOLEAN NOT NULL DEFAULT FALSE"))
         db.session.commit()
         print("[MIGRACAO] Coluna comodos.geral criada.")
+    except Exception:
+        db.session.rollback()   # coluna já existe
+    # Coluna 'papel' (Agenda de Tarefas) em bancos criados antes dela.
+    try:
+        db.session.execute(text(
+            "ALTER TABLE usuarios ADD COLUMN papel VARCHAR(20)"))
+        db.session.commit()
+        print("[MIGRACAO] Coluna usuarios.papel criada.")
     except Exception:
         db.session.rollback()   # coluna já existe
 

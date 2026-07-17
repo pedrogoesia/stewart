@@ -22,8 +22,27 @@ from extensions import db, login_manager
 FERRAMENTAS = {
     "relatorios": "Relatório de Obras",
     "atas": "Assistente de Atas",
+    "tarefas": "Agenda de Tarefas",
 }
 TODAS_FERRAMENTAS = ",".join(FERRAMENTAS)
+
+# Papéis de quem trabalha nas obras (opcional: contas antigas ficam sem papel).
+# Quem gerencia tarefas de uma obra: admin, dono da obra ou engenheiro membro.
+PAPEIS = {
+    "engenheiro": "Engenheiro",
+    "encarregado": "Encarregado",
+    "estagiario": "Estagiário",
+}
+
+# Vínculo usuário↔obra: define quais obras cada pessoa vê na Agenda de
+# Tarefas (o dono da obra e o admin são membros implícitos).
+obra_membros = db.Table(
+    "obra_membros",
+    db.Column("usuario_id", db.Integer, db.ForeignKey("usuarios.id"),
+              primary_key=True),
+    db.Column("obra_id", db.Integer, db.ForeignKey("obras.id"),
+              primary_key=True),
+)
 
 
 class Usuario(UserMixin, db.Model):
@@ -37,9 +56,13 @@ class Usuario(UserMixin, db.Model):
     # Slugs (separados por vírgula) das ferramentas liberadas para o usuário.
     # NULL (contas antigas, antes da migração) equivale a todas liberadas.
     ferramentas = db.Column(db.String(255), default=TODAS_FERRAMENTAS)
+    # Papel na equipe (PAPEIS) — opcional; NULL nas contas antigas.
+    papel = db.Column(db.String(20))
 
     obras = db.relationship("Obra", backref="usuario",
                             cascade="all, delete-orphan")
+    obras_membro = db.relationship("Obra", secondary=obra_membros,
+                                   backref="membros")
 
     def definir_senha(self, senha):
         self.senha_hash = generate_password_hash(senha)
@@ -101,6 +124,34 @@ class Foto(db.Model):
     descricao = db.Column(db.Text, default="")
     ordem = db.Column(db.Integer, nullable=False, default=0)
     criado_em = db.Column(db.String(40), nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# Ferramenta: Agenda de Tarefas
+# ---------------------------------------------------------------------------
+STATUS_TAREFA = ("pendente", "em_andamento", "concluida")
+
+
+class Tarefa(db.Model):
+    __tablename__ = "tarefas"
+    id = db.Column(db.Integer, primary_key=True)
+    obra_id = db.Column(db.Integer, db.ForeignKey("obras.id"),
+                        nullable=False, index=True)
+    titulo = db.Column(db.String(255), nullable=False)
+    descricao = db.Column(db.Text, default="")
+    # Responsável/criador ficam NULL se o usuário for excluído (histórico
+    # da obra não se perde junto com a conta).
+    responsavel_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"),
+                               index=True)
+    criador_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"))
+    prazo = db.Column(db.Date, index=True)
+    status = db.Column(db.String(20), nullable=False, default="pendente")
+    criado_em = db.Column(db.String(40), nullable=False)
+    concluida_em = db.Column(db.String(40))
+
+    obra = db.relationship(
+        "Obra", backref=db.backref("tarefas", cascade="all, delete-orphan"))
+    responsavel = db.relationship("Usuario", foreign_keys=[responsavel_id])
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +228,38 @@ def foto_do_usuario(foto_id):
     if foto is None or not pode_acessar(foto.comodo.obra.usuario_id):
         abort(404)
     return foto
+
+
+def eh_membro_da_obra(obra, usuario=None):
+    """Membro = vinculado em obra_membros, dono da obra ou admin."""
+    u = usuario if usuario is not None else current_user
+    if not u.is_authenticated:
+        return False
+    return (u.is_admin or obra.usuario_id == u.id
+            or any(m.id == u.id for m in obra.membros))
+
+
+def pode_gerenciar_tarefas(obra, usuario=None):
+    """Cria/edita/atribui/exclui tarefas: admin, dono ou engenheiro membro."""
+    u = usuario if usuario is not None else current_user
+    if not eh_membro_da_obra(obra, u):
+        return False
+    return u.is_admin or obra.usuario_id == u.id or u.papel == "engenheiro"
+
+
+def obra_do_membro(obra_id):
+    """Obra visível na Agenda de Tarefas: membros; senão 404 (não vaza)."""
+    obra = db.session.get(Obra, obra_id)
+    if obra is None or not eh_membro_da_obra(obra):
+        abort(404)
+    return obra
+
+
+def tarefa_do_membro(tarefa_id):
+    tarefa = db.session.get(Tarefa, tarefa_id)
+    if tarefa is None or not eh_membro_da_obra(tarefa.obra):
+        abort(404)
+    return tarefa
 
 
 def senha_fraca(senha):

@@ -37,6 +37,9 @@ source .venv/bin/activate && python app.py
 - `tests/test_ferramentas_admin.py` — permissão por ferramenta (403) e rotas /admin/*.
 - `tests/test_fluxo_relatorio.py` — fluxo completo: upload real (resize p/ 2000px),
   legenda, .pptx e .zip.
+- `tests/test_tarefas.py` — Agenda de Tarefas: papéis (engenheiro gerencia;
+  encarregado/estagiário só mudam o próprio status), vínculo por obra, validações
+  e visão "minha semana".
 - O `tests/conftest.py` aponta `DATA_DIR` para pasta temporária antes de
   importar o app — os testes nunca tocam `data/` nem banco de produção.
   Manter esse padrão em testes novos. **Todo modelo novo entra com testes de
@@ -58,9 +61,10 @@ config.py            # Config central: caminhos (DATA_DIR), constantes, database
 models.py            # Modelos SQLAlchemy
 extensions.py        # Instâncias das extensões Flask
 blueprints/
-  auth.py            # Login/usuários
+  auth.py            # Login/usuários/admin (papéis e vínculo usuário↔obra)
   relatorios.py      # Obras, cômodos, fotos, geração de relatórios
   atas.py            # Atas de reunião (.docx, com IA)
+  tarefas.py         # Agenda de Tarefas por obra ("minha semana", badge)
 pptx_generator.py    # Gera o .pptx a partir de template/TEMPLATE_STEWART.pptx
 ai_edit.py           # Integração OpenAI (edição de fotos + texto das atas)
 utils.py             # Processamento de imagem (EXIF, resize, formatos)

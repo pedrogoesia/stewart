@@ -107,6 +107,33 @@ def test_admin_cria_usuario_com_ferramentas(client, dados):
     assert not novo.pode_ver_ferramenta("relatorios")
 
 
+def test_admin_define_papel_e_vincula_obras(client, dados):
+    login(client, "admin@teste.com")
+    alvo, obra = dados["a"], dados["obra"]
+    resp = client.post(f"/admin/usuarios/{alvo.id}/equipe",
+                       data={"papel": "encarregado", "obras": [obra.id]})
+    assert resp.status_code == 200
+    db.session.expire_all()
+    a = db.session.get(Usuario, alvo.id)
+    assert a.papel == "encarregado"
+    assert [o.id for o in a.obras_membro] == [obra.id]
+
+    # Desmarcar tudo remove papel e vínculos.
+    client.post(f"/admin/usuarios/{alvo.id}/equipe", data={"papel": ""})
+    db.session.expire_all()
+    a = db.session.get(Usuario, alvo.id)
+    assert a.papel is None and a.obras_membro == []
+
+
+def test_nao_admin_nao_define_equipe(client, dados):
+    login(client, "a@teste.com")
+    resp = client.post(f"/admin/usuarios/{dados['b'].id}/equipe",
+                       data={"papel": "engenheiro"})
+    assert resp.status_code == 403
+    db.session.expire_all()
+    assert db.session.get(Usuario, dados["b"].id).papel is None
+
+
 def test_admin_nao_cria_usuario_com_senha_fraca(client, dados):
     login(client, "admin@teste.com")
     client.post("/admin/usuarios/criar",

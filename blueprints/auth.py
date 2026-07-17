@@ -9,14 +9,16 @@ from flask_login import (current_user, login_required, login_user,
 
 from config import SENHA_MIN
 from extensions import db, limiter
-from models import (FERRAMENTAS, Usuario, registrar_atividade, senha_fraca)
+from models import (FERRAMENTAS, PAPEIS, Obra, Usuario, registrar_atividade,
+                    senha_fraca)
 from utils import destino_seguro, remover_arquivos_da_obra
 
 bp = Blueprint("auth", __name__)
 
 
 # Página inicial de cada ferramenta (para o redirecionamento pós-login).
-_INDEX_FERRAMENTA = {"relatorios": "relatorios.index", "atas": "atas.index"}
+_INDEX_FERRAMENTA = {"relatorios": "relatorios.index", "atas": "atas.index",
+                     "tarefas": "tarefas.index"}
 
 
 def _pagina_inicial():
@@ -113,8 +115,10 @@ def _exige_admin():
 def admin_usuarios():
     _exige_admin()
     usuarios = Usuario.query.order_by(Usuario.id).all()
+    obras = Obra.query.order_by(Obra.nome).all()
     return render_template("admin_usuarios.html", usuarios=usuarios,
-                           ferramentas=FERRAMENTAS)
+                           ferramentas=FERRAMENTAS, papeis=PAPEIS,
+                           obras=obras)
 
 
 @bp.route("/admin/atividades")
@@ -151,7 +155,9 @@ def admin_criar_usuario():
         return _admin_msg(f"A senha deve ter pelo menos {SENHA_MIN} caracteres.", erro=True)
     if Usuario.query.filter_by(email=email).first():
         return _admin_msg("Já existe um usuário com esse email.", erro=True)
+    papel = (request.form.get("papel") or "").strip()
     usuario = Usuario(email=email, nome=nome, is_admin=is_admin,
+                      papel=papel if papel in PAPEIS else None,
                       criado_em=datetime.now().isoformat())
     usuario.definir_senha(senha)
     usuario.definir_ferramentas(request.form.getlist("ferramentas"))
@@ -174,6 +180,28 @@ def admin_ferramentas(user_id):
         "ferramentas_alteradas",
         f"Ferramentas de {usuario.email}: {', '.join(nomes) or 'nenhuma'}")
     return _admin_msg(f"Ferramentas de {usuario.email} atualizadas.")
+
+
+@bp.route("/admin/usuarios/<int:user_id>/equipe", methods=["POST"])
+@login_required
+def admin_equipe(user_id):
+    """Define o papel e as obras às quais o usuário está vinculado
+    (Agenda de Tarefas)."""
+    _exige_admin()
+    usuario = db.session.get(Usuario, user_id) or abort(404)
+    papel = (request.form.get("papel") or "").strip()
+    if papel and papel not in PAPEIS:
+        return _admin_msg("Papel inválido.", erro=True)
+    usuario.papel = papel or None
+    ids = {int(x) for x in request.form.getlist("obras") if x.isdigit()}
+    usuario.obras_membro = (Obra.query.filter(Obra.id.in_(ids)).all()
+                            if ids else [])
+    db.session.commit()
+    registrar_atividade(
+        "equipe_alterada",
+        f"{usuario.email}: papel {PAPEIS.get(usuario.papel, '—')}, "
+        f"vinculado a {len(usuario.obras_membro)} obra(s)")
+    return _admin_msg(f"Equipe de {usuario.email} atualizada.")
 
 
 @bp.route("/admin/usuarios/<int:user_id>/senha", methods=["POST"])
@@ -200,6 +228,12 @@ def admin_excluir_usuario(user_id):
     email_excluido = usuario.email
     for obra in usuario.obras:
         remover_arquivos_da_obra(obra)
+    # Tarefas em obras de OUTROS ficam no histórico, sem responsável/criador
+    # (apagar junto perderia o registro da obra; FK exige limpar antes).
+    from models import Tarefa
+    Tarefa.query.filter_by(responsavel_id=usuario.id).update(
+        {"responsavel_id": None})
+    Tarefa.query.filter_by(criador_id=usuario.id).update({"criador_id": None})
     db.session.delete(usuario)
     db.session.commit()
     registrar_atividade("usuario_excluido", f"Excluiu o usuário {email_excluido}")
@@ -208,6 +242,8 @@ def admin_excluir_usuario(user_id):
 
 def _admin_msg(msg, erro=False):
     usuarios = Usuario.query.order_by(Usuario.id).all()
+    obras = Obra.query.order_by(Obra.nome).all()
     chave = "erro" if erro else "ok"
     return render_template("admin_usuarios.html", usuarios=usuarios,
-                           ferramentas=FERRAMENTAS, **{chave: msg})
+                           ferramentas=FERRAMENTAS, papeis=PAPEIS,
+                           obras=obras, **{chave: msg})

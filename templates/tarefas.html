@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_icones.html" import icone %}
+{% block title %}Minha semana — Stewart{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="dash-eyebrow">Ferramenta</span>
+    <h1>Agenda de Tarefas</h1>
+    <p class="muted">Suas tarefas da semana, em todas as obras.</p>
+  </div>
+</div>
+
+{% macro lista_tarefas(titulo, tarefas, classe) %}
+  {% if tarefas %}
+  <section class="tarefas-grupo {{ classe }}">
+    <h2>{{ titulo }} <span class="muted">({{ tarefas|length }})</span></h2>
+    {% for t in tarefas %}
+    <div class="tarefa-item">
+      <div class="tarefa-info">
+        <strong>{{ t.titulo }}</strong>
+        <p class="muted">
+          {{ t.obra.nome }}
+          {% if t.prazo %} · prazo {{ t.prazo.strftime("%d/%m/%Y") }}{% endif %}
+          {% if t.descricao %} · {{ t.descricao }}{% endif %}
+        </p>
+      </div>
+      <div class="tarefa-acoes">
+        {% if t.status == "pendente" %}
+        <button class="btn btn-sm" onclick="mudarStatus({{ t.id }}, 'em_andamento')">Iniciar</button>
+        {% endif %}
+        <button class="btn btn-sm btn-primary" onclick="mudarStatus({{ t.id }}, 'concluida')">Concluir</button>
+        <a class="btn btn-sm btn-ghost" href="{{ url_for('tarefas.obra_tarefas', obra_id=t.obra_id) }}">Ver obra</a>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+{% endmacro %}
+
+{{ lista_tarefas("⚠ Atrasadas", grupos.atrasadas, "grupo-atrasadas") }}
+{{ lista_tarefas("Esta semana", grupos.semana, "") }}
+{{ lista_tarefas("Próximas", grupos.proximas, "") }}
+
+{% if not grupos.atrasadas and not grupos.semana and not grupos.proximas %}
+<div class="empty"><p>Nenhuma tarefa pendente para você. 🎉</p></div>
+{% endif %}
+
+{% if obras %}
+<section class="tarefas-grupo">
+  <h2>Obras</h2>
+  <div class="cards">
+    {% for o in obras %}
+    <div class="card">
+      <a class="card-main" href="{{ url_for('tarefas.obra_tarefas', obra_id=o.id) }}">
+        <h2>{{ o.nome }}</h2>
+        {% if o.endereco %}<p class="muted">{{ o.endereco }}</p>{% endif %}
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function csrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  return meta ? meta.getAttribute("content") : "";
+}
+async function mudarStatus(id, status) {
+  const fd = new FormData();
+  fd.append("status", status);
+  const resp = await fetch(`/tarefa/${id}/status`, {
+    method: "POST", body: fd, headers: { "X-CSRFToken": csrfToken() },
+  });
+  if (!resp.ok) { alert("Não foi possível atualizar a tarefa."); return; }
+  location.reload();
+}
+</script>
+{% endblock %}
