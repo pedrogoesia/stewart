@@ -44,6 +44,10 @@ source .venv/bin/activate && python app.py
   × executor, obras entregues, conclusão com descrição obrigatória, fotos.
 - `tests/test_compras.py` — Compras: solicitante × setor (papel `compras`),
   pedido com itens, fornecedores, ordem com totais calculados e PDF.
+- `tests/test_hardening.py` — correções da auditoria de 18/07/2026
+  (specs/hardening-auditoria.md): exclusões que preservam histórico (FKs),
+  FK fiscalizada no SQLite, PDF com `<`/`&`, dinheiro Decimal, fronteiras
+  400 em Compras.
 - O `tests/conftest.py` aponta `DATA_DIR` para pasta temporária antes de
   importar o app — os testes nunca tocam `data/` nem banco de produção.
   Manter esse padrão em testes novos. **Todo modelo novo entra com testes de

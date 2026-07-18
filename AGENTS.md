@@ -43,7 +43,7 @@ extensions.py        # instâncias das extensões Flask
 blueprints/          # auth, relatorios, atas, tarefas, manutencao, compras
 pptx_generator.py    # .pptx do template oficial | compras_pdf.py  # PDF da ordem
 ai_edit.py           # integração OpenAI | utils.py  # imagens, slugify, paths
-templates/ static/   # telas | tests/  # 83 testes | specs/  # specs por fase
+templates/ static/   # telas | tests/  # 91 testes | specs/  # specs por fase
 ```
 
 ## REGRAS INEGOCIÁVEIS (não regredir)
@@ -94,7 +94,7 @@ templates/ static/   # telas | tests/  # 83 testes | specs/  # specs por fase
    requisitos: se faltar decisão de produto, PERGUNTE.
 2. **Testes primeiro**: os critérios viram testes que nascem falhando.
 3. Implementar até a suíte inteira passar (`pytest tests/`), sem quebrar os
-   83 existentes.
+   existentes.
 4. **Evidência real**: além dos testes, exercite o fluxo (servidor local,
    PDF/PPTX gerado de verdade). "Compila" não é evidência.
 5. Commits pequenos em pt-BR, um assunto por commit. NÃO faça push sem o
@@ -109,7 +109,9 @@ CI: GitHub Actions roda a suíte a cada push (`.github/workflows/tests.yml`).
 
 ## Estado e próximos passos (v2)
 
-Fases 0–3 do `ROADMAP.md` implementadas em 17/07/2026 (83 testes verdes).
+Fases 0–3 do `ROADMAP.md` implementadas em 17/07/2026; hardening
+pós-auditoria em 18/07/2026 (`specs/hardening-auditoria.md`; 91 testes
+verdes — FKs fiscalizadas também no SQLite, dinheiro em Decimal).
 Backlog v2: comparativo automático de cotações entre fornecedores; leitura
 do orçamento do fornecedor (PDF) com IA; envio de email pela plataforma
 (SMTP — definir domínio/remetente); alçada de aprovação por valor em

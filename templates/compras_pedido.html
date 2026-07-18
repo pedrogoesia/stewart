@@ -29,7 +29,7 @@
       <tbody>
         {% for i in pedido.itens %}
         <tr><td>{{ loop.index }}</td><td>{{ i.descricao }}</td>
-            <td>{{ i.unidade }}</td><td>{{ i.quantidade|int if i.quantidade == i.quantidade|int else i.quantidade }}</td></tr>
+            <td>{{ i.unidade }}</td><td>{{ i.quantidade|int if i.quantidade == i.quantidade|int else i.quantidade|float }}</td></tr>
         {% endfor %}
       </tbody>
     </table>

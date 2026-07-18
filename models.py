@@ -145,10 +145,13 @@ class Tarefa(db.Model):
     titulo = db.Column(db.String(255), nullable=False)
     descricao = db.Column(db.Text, default="")
     # Responsável/criador ficam NULL se o usuário for excluído (histórico
-    # da obra não se perde junto com a conta).
-    responsavel_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"),
-                               index=True)
-    criador_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"))
+    # da obra não se perde junto com a conta). O SET NULL vale em banco
+    # novo; bancos antigos dependem da limpeza em admin_excluir_usuario.
+    responsavel_id = db.Column(
+        db.Integer, db.ForeignKey("usuarios.id", ondelete="SET NULL"),
+        index=True)
+    criador_id = db.Column(
+        db.Integer, db.ForeignKey("usuarios.id", ondelete="SET NULL"))
     prazo = db.Column(db.Date, index=True)
     status = db.Column(db.String(20), nullable=False, default="pendente")
     criado_em = db.Column(db.String(40), nullable=False)
@@ -182,10 +185,13 @@ class Manutencao(db.Model):
     titulo = db.Column(db.String(255), nullable=False)
     detalhes = db.Column(db.Text, default="")
     # Responsável/criador ficam NULL se o usuário for excluído (o histórico
-    # do cliente não se perde junto com a conta).
-    responsavel_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"),
-                               index=True)
-    criador_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"))
+    # do cliente não se perde junto com a conta). O SET NULL vale em banco
+    # novo; bancos antigos dependem da limpeza em admin_excluir_usuario.
+    responsavel_id = db.Column(
+        db.Integer, db.ForeignKey("usuarios.id", ondelete="SET NULL"),
+        index=True)
+    criador_id = db.Column(
+        db.Integer, db.ForeignKey("usuarios.id", ondelete="SET NULL"))
     data_agendada = db.Column(db.Date, index=True)
     status = db.Column(db.String(20), nullable=False, default="agendada")
     descricao_realizada = db.Column(db.Text, default="")
@@ -230,10 +236,14 @@ class PedidoCompra(db.Model):
     __tablename__ = "pedidos_compra"
     id = db.Column(db.Integer, primary_key=True)
     # Obra pode ser escolhida do cadastro ou digitada livre (obra externa).
-    obra_id = db.Column(db.Integer, db.ForeignKey("obras.id"))
+    # Se a obra/o solicitante forem excluídos, o pedido sobrevive: obra_id
+    # vira NULL (o nome fica em obra_nome, desnormalizado de propósito).
+    obra_id = db.Column(db.Integer,
+                        db.ForeignKey("obras.id", ondelete="SET NULL"))
     obra_nome = db.Column(db.String(255), nullable=False)
-    solicitante_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"),
-                               index=True)
+    solicitante_id = db.Column(
+        db.Integer, db.ForeignKey("usuarios.id", ondelete="SET NULL"),
+        index=True)
     data_prevista = db.Column(db.Date)
     observacoes = db.Column(db.Text, default="")
     status = db.Column(db.String(20), nullable=False, default="aberto")
@@ -249,7 +259,9 @@ class ItemPedido(db.Model):
                           nullable=False, index=True)
     descricao = db.Column(db.String(500), nullable=False)
     unidade = db.Column(db.String(20), default="UNID")
-    quantidade = db.Column(db.Float, nullable=False, default=1)
+    # Numeric/Decimal, não Float: quantidades e valores entram em contas de
+    # dinheiro, e float binário acumula erro de arredondamento nos centavos.
+    quantidade = db.Column(db.Numeric(12, 3), nullable=False, default=1)
     ordem = db.Column(db.Integer, nullable=False, default=0)
 
     pedido = db.relationship(
@@ -272,8 +284,8 @@ class OrdemCompra(db.Model):
     faturamento_cep = db.Column(db.String(20), default="")
     entrega_endereco = db.Column(db.String(255), default="")
     entrega_cep = db.Column(db.String(20), default="")
-    frete = db.Column(db.Float, nullable=False, default=0)
-    desconto = db.Column(db.Float, nullable=False, default=0)
+    frete = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     cond_pagamento = db.Column(db.String(255), default="")
     obs = db.Column(db.Text, default="")
     criado_em = db.Column(db.String(40), nullable=False)
@@ -298,8 +310,8 @@ class ItemOrdem(db.Model):
                                 nullable=False, index=True)
     descricao = db.Column(db.String(500), nullable=False)
     unidade = db.Column(db.String(20), default="UNID")
-    quantidade = db.Column(db.Float, nullable=False, default=1)
-    valor_unit = db.Column(db.Float)
+    quantidade = db.Column(db.Numeric(12, 3), nullable=False, default=1)
+    valor_unit = db.Column(db.Numeric(12, 2))
     prazo_entrega = db.Column(db.Date)
     ordem = db.Column(db.Integer, nullable=False, default=0)
 

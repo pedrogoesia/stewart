@@ -6,6 +6,7 @@ baixa o PDF no layout oficial para enviar ao fornecedor/financeiro.
 """
 
 from datetime import date, datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from flask import (Blueprint, abort, jsonify, redirect, render_template,
                    request, send_file, url_for)
@@ -39,15 +40,32 @@ def _ler_data(valor, rotulo):
         return None, f"{rotulo} inválida: use o formato AAAA-MM-DD."
 
 
-def _ler_valor(valor, rotulo):
-    """'' → 0; aceita vírgula decimal ('12,50')."""
+def _ler_valor(valor, rotulo, casas=2):
+    """'' → 0; aceita vírgula decimal ('12,50').
+
+    Decimal, não float: os valores entram em contas de dinheiro e float
+    binário acumula erro de arredondamento nos centavos."""
     valor = (valor or "").strip().replace(",", ".")
     if not valor:
-        return 0.0, None
+        return Decimal("0"), None
     try:
-        v = float(valor)
-    except ValueError:
+        v = Decimal(valor)
+    except InvalidOperation:
         return None, f"{rotulo} inválido: use números (ex.: 12,50)."
+    try:
+        # Arredondar para a escala da coluna ANTES das checagens: é o valor
+        # que o Postgres vai gravar. Sem isso, 999999999,9999 passa no teto
+        # e estoura Numeric(12,3) (500), e 0,0004 passa no "quantidade > 0"
+        # mas vira 0.000 no banco. quantize também barra 'nan'/'inf' e
+        # números com mais dígitos que a precisão do contexto.
+        if not v.is_finite():
+            raise InvalidOperation
+        v = v.quantize(Decimal(1).scaleb(-casas), rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return None, f"{rotulo} inválido: valor grande demais."
+    # O teto respeita a precisão da coluna Numeric(12, casas).
+    if v >= Decimal("1000000000"):
+        return None, f"{rotulo} inválido: valor grande demais."
     if v < 0:
         return None, f"{rotulo} não pode ser negativo."
     return v, None
@@ -114,7 +132,8 @@ def criar_pedido():
         if not descricao:
             return jsonify({"erro": "Todo item precisa de descrição."}), 400
         qtde, erro = _ler_valor(
-            quantidades[i] if i < len(quantidades) else "", "Quantidade")
+            quantidades[i] if i < len(quantidades) else "", "Quantidade",
+            casas=3)  # escala da coluna ItemPedido.quantidade Numeric(12,3)
         if erro or not qtde:
             return jsonify({"erro": erro or "Quantidade obrigatória."}), 400
         unidade = ((unidades[i] if i < len(unidades) else "") or
@@ -123,10 +142,15 @@ def criar_pedido():
     if not itens:
         return jsonify({"erro": "Adicione pelo menos um item."}), 400
 
+    # obra_id é opcional (obra externa fica só no nome), mas se vier tem que
+    # existir — id inventado estouraria a FK no Postgres (500, não 400).
     obra_id = None
     valor = (request.form.get("obra_id") or "").strip()
-    if valor.isdigit():
-        obra_id = int(valor)
+    if valor:
+        obra = db.session.get(Obra, int(valor)) if valor.isdigit() else None
+        if obra is None:
+            return jsonify({"erro": "Obra inválida."}), 400
+        obra_id = obra.id
     pedido = PedidoCompra(
         obra_id=obra_id, obra_nome=obra_nome,
         solicitante_id=current_user.id, data_prevista=data_prevista,
@@ -188,8 +212,13 @@ def criar_ordem(pedido_id):
     if not eh_setor_compras():
         abort(403)
     pedido = pedido_do_usuario(pedido_id)
-    fornecedor = db.session.get(Fornecedor,
-                                int(request.form.get("fornecedor_id") or 0))
+    # v1: uma ordem por pedido (spec fase 3) — também evita ordem duplicada
+    # por duplo clique. Múltiplas cotações são v2.
+    if pedido.status != "aberto":
+        return jsonify({"erro": "Este pedido já virou ordem de compra."}), 400
+    valor = (request.form.get("fornecedor_id") or "").strip()
+    fornecedor = (db.session.get(Fornecedor, int(valor))
+                  if valor.isdigit() else None)
     if fornecedor is None:
         return jsonify({"erro": "Escolha um fornecedor."}), 400
     ordem = OrdemCompra(
@@ -247,8 +276,9 @@ def editar_ordem(ordem_id):
         if campo in request.form:
             setattr(ordem, campo, (request.form.get(campo) or "").strip())
     db.session.commit()
-    return jsonify({"ok": True, "subtotal": ordem.subtotal(),
-                    "total": ordem.total()})
+    # Decimal não é serializável em JSON; float aqui é só para exibição.
+    return jsonify({"ok": True, "subtotal": float(ordem.subtotal()),
+                    "total": float(ordem.total())})
 
 
 @bp.route("/compras/ordem/<int:ordem_id>/pdf")

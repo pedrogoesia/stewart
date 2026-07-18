@@ -25,7 +25,7 @@
         <tr>
           <td>{{ loop.index }}</td><td>{{ i.descricao }}</td>
           <td>{{ i.unidade }}</td>
-          <td>{{ i.quantidade|int if i.quantidade == i.quantidade|int else i.quantidade }}</td>
+          <td>{{ i.quantidade|int if i.quantidade == i.quantidade|int else i.quantidade|float }}</td>
           <td><input type="text" name="valor_unit_{{ i.id }}" size="9"
                      value="{{ '%.2f'|format(i.valor_unit)|replace('.', ',') if i.valor_unit is not none else '' }}"
                      placeholder="0,00"></td>

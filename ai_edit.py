@@ -48,7 +48,9 @@ def editar_imagem(caminho_entrada, prompt):
             "pip install -r requirements.txt") from exc
 
     model = os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1")
-    client = OpenAI(api_key=api_key)
+    # timeout: edição de imagem demora mais que texto, mas sem limite o SDK
+    # espera até 10 min e o worker fica preso com o usuário sem resposta.
+    client = OpenAI(api_key=api_key, timeout=180)
 
     try:
         with open(caminho_entrada, "rb") as arquivo:

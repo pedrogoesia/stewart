@@ -230,12 +230,25 @@ def admin_excluir_usuario(user_id):
     email_excluido = usuario.email
     for obra in usuario.obras:
         remover_arquivos_da_obra(obra)
-    # Tarefas em obras de OUTROS ficam no histórico, sem responsável/criador
-    # (apagar junto perderia o registro da obra; FK exige limpar antes).
-    from models import Tarefa
+    # Registros de OUTROS que apontam para este usuário ficam no histórico,
+    # sem responsável/criador/solicitante (apagar junto perderia o registro;
+    # a FK exige limpar antes — o SET NULL do schema só vale em banco novo).
+    from models import Manutencao, PedidoCompra, Tarefa
     Tarefa.query.filter_by(responsavel_id=usuario.id).update(
         {"responsavel_id": None})
     Tarefa.query.filter_by(criador_id=usuario.id).update({"criador_id": None})
+    Manutencao.query.filter_by(responsavel_id=usuario.id).update(
+        {"responsavel_id": None})
+    Manutencao.query.filter_by(criador_id=usuario.id).update(
+        {"criador_id": None})
+    PedidoCompra.query.filter_by(solicitante_id=usuario.id).update(
+        {"solicitante_id": None})
+    # Pedidos que citam obras deste usuário sobrevivem com o nome
+    # desnormalizado (obra_nome); as obras em si somem em cascata.
+    ids_obras = [o.id for o in usuario.obras]
+    if ids_obras:
+        PedidoCompra.query.filter(PedidoCompra.obra_id.in_(ids_obras)).update(
+            {"obra_id": None}, synchronize_session=False)
     db.session.delete(usuario)
     db.session.commit()
     registrar_atividade("usuario_excluido", f"Excluiu o usuário {email_excluido}")

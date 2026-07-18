@@ -116,6 +116,10 @@ def excluir_obra(obra_id):
     obra = obra_do_usuario(obra_id)
     nome_obra = obra.nome
     remover_arquivos_da_obra(obra)
+    # Pedidos de compra citam a obra só como referência: sobrevivem com o
+    # nome desnormalizado (obra_nome); a FK exige limpar antes de excluir.
+    from models import PedidoCompra
+    PedidoCompra.query.filter_by(obra_id=obra.id).update({"obra_id": None})
     db.session.delete(obra)
     db.session.commit()
     registrar_atividade("obra_excluida", f"Excluiu a obra '{nome_obra}'",

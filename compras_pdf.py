@@ -5,6 +5,8 @@ Referência: "196 - CRUZADA - ORDEM DE COMPRA" (planilha feita à mão até
 """
 
 import io
+from decimal import Decimal
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -37,6 +39,22 @@ def _data(d):
     return d.strftime("%d/%m/%Y") if d else ""
 
 
+def _qtde(q):
+    """Decimal('3.000') → '3'; Decimal('2.500') → '2.5'.
+
+    normalize() tira os zeros da escala ("3.000" em pt-BR lê como três mil)
+    e ':f' garante notação posicional — ':g' (ou float) daria '1e+06' a
+    partir de 7 dígitos significativos."""
+    return f"{(q or Decimal(0)).normalize():f}"
+
+
+def _txt(valor):
+    """Escapa texto digitado pelo usuário: Paragraph interpreta <...> e &
+    como markup — sem isto, uma descrição como 'tubo <25mm' quebra (ou
+    silenciosamente formata) o PDF."""
+    return escape(str(valor or ""))
+
+
 def gerar_ordem_pdf(ordem):
     """Monta o PDF e devolve os bytes."""
     buf = io.BytesIO()
@@ -49,24 +67,24 @@ def gerar_ordem_pdf(ordem):
     corpo = [
         Paragraph(f"Ordem de compra - {ordem.id:04d}", _titulo),
         Spacer(1, 4 * mm),
-        Paragraph(f"<b>Fornecedor:</b> {f.nome}", _base),
-        Paragraph(f"<b>Cnpj:</b> {f.cnpj}", _base),
-        Paragraph(f"<b>Telefone:</b> {f.telefone} | <b>E-mail:</b> {f.email}",
-                  _base),
-        Paragraph(f"<b>Contato:</b> {f.contato}", _base),
+        Paragraph(f"<b>Fornecedor:</b> {_txt(f.nome)}", _base),
+        Paragraph(f"<b>Cnpj:</b> {_txt(f.cnpj)}", _base),
+        Paragraph(f"<b>Telefone:</b> {_txt(f.telefone)} | "
+                  f"<b>E-mail:</b> {_txt(f.email)}", _base),
+        Paragraph(f"<b>Contato:</b> {_txt(f.contato)}", _base),
         Spacer(1, 4 * mm),
     ]
 
     faturamento = Paragraph(
         "<b>Dados para faturamento:</b><br/>"
-        f"Razão Social: {ordem.faturamento_razao}<br/>"
-        f"CNPJ/CPF: {ordem.faturamento_cnpj_cpf}<br/>"
-        f"Endereço: {ordem.faturamento_endereco}<br/>"
-        f"Cep: {ordem.faturamento_cep}", _base)
+        f"Razão Social: {_txt(ordem.faturamento_razao)}<br/>"
+        f"CNPJ/CPF: {_txt(ordem.faturamento_cnpj_cpf)}<br/>"
+        f"Endereço: {_txt(ordem.faturamento_endereco)}<br/>"
+        f"Cep: {_txt(ordem.faturamento_cep)}", _base)
     entrega = Paragraph(
         "<b>Dados de entrega:</b><br/>"
-        f"Endereço: {ordem.entrega_endereco}<br/>"
-        f"Cep: {ordem.entrega_cep}", _base)
+        f"Endereço: {_txt(ordem.entrega_endereco)}<br/>"
+        f"Cep: {_txt(ordem.entrega_cep)}", _base)
     bloco = Table([[faturamento, entrega]], colWidths=[90 * mm, 90 * mm])
     bloco.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     corpo += [bloco, Spacer(1, 4 * mm)]
@@ -75,16 +93,16 @@ def gerar_ordem_pdf(ordem):
                    if pedido.solicitante else "")
     corpo += [Paragraph(
         f"<b>N° {ordem.id:04d}</b> &nbsp;&nbsp; Data: {_data(ordem.data)} "
-        f"&nbsp;&nbsp; Obra: {pedido.obra_nome} "
-        f"&nbsp;&nbsp; Solicitante: {solicitante}", _base),
+        f"&nbsp;&nbsp; Obra: {_txt(pedido.obra_nome)} "
+        f"&nbsp;&nbsp; Solicitante: {_txt(solicitante)}", _base),
         Spacer(1, 2 * mm)]
 
     linhas = [["Item", "Descrição dos insumos", "unid", "Quant",
                "Valor unit.", "Valor total", "Prazo de entrega"]]
     for n, item in enumerate(ordem.itens, start=1):
         linhas.append([
-            str(n), Paragraph(item.descricao, _mini), item.unidade,
-            f"{item.quantidade:g}", moeda(item.valor_unit),
+            str(n), Paragraph(_txt(item.descricao), _mini), item.unidade,
+            _qtde(item.quantidade), moeda(item.valor_unit),
             moeda(item.quantidade * (item.valor_unit or 0)),
             _data(item.prazo_entrega)])
     tabela = Table(linhas, colWidths=[10 * mm, 72 * mm, 12 * mm, 14 * mm,
@@ -115,9 +133,10 @@ def gerar_ordem_pdf(ordem):
     ]))
     corpo += [totais, Spacer(1, 4 * mm)]
 
-    obs = Table([[Paragraph(f"<b>OBS:</b> {ordem.obs}", _base),
-                  Paragraph(f"<b>COND. DE PAG.</b><br/>{ordem.cond_pagamento}",
-                            _base)]], colWidths=[110 * mm, 70 * mm])
+    obs = Table([[Paragraph(f"<b>OBS:</b> {_txt(ordem.obs)}", _base),
+                  Paragraph("<b>COND. DE PAG.</b><br/>"
+                            f"{_txt(ordem.cond_pagamento)}", _base)]],
+                colWidths=[110 * mm, 70 * mm])
     obs.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     corpo += [obs, Spacer(1, 6 * mm)]
 
