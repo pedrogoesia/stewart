@@ -29,27 +29,39 @@
   </div>
 
   <nav class="sb-nav">
-    <div class="sb-sec">Ferramentas</div>
+    {# Item ativo pelo blueprint: páginas internas (ex.: kanban de uma obra)
+       também acendem a ferramenta, não só a página inicial dela. #}
+
+    {% if current_user.pode_ver_ferramenta('relatorios')
+          or current_user.pode_ver_ferramenta('tarefas') %}
+    <div class="sb-sec">Obras</div>
     {% if current_user.pode_ver_ferramenta('relatorios') %}
-    <a class="sb-item {% if request.path == url_for('relatorios.index') %}ativo{% endif %}"
+    <a class="sb-item {% if request.blueprint == 'relatorios' %}ativo{% endif %}"
        href="{{ url_for('relatorios.index') }}">{{ icone('camera') }} Relatório de Obras</a>
     {% endif %}
-    {% if current_user.pode_ver_ferramenta('atas') %}
-    <a class="sb-item {% if request.path == url_for('atas.index') %}ativo{% endif %}"
-       href="{{ url_for('atas.index') }}">{{ icone('clipboard') }} Assistente de Atas</a>
-    {% endif %}
     {% if current_user.pode_ver_ferramenta('tarefas') %}
-    <a class="sb-item {% if request.path == url_for('tarefas.index') %}ativo{% endif %}"
-       href="{{ url_for('tarefas.index') }}">{{ icone('calendar') }} Agenda de Tarefas
-      {%- set n = tarefas_badge() %}{% if n %} <span class="sb-badge">{{ n }}</span>{% endif %}</a>
+    <span class="sb-item sb-item-inativo">{{ icone('calendar') }} Agenda de Tarefas
+      <span class="sb-breve">Em breve</span></span>
     {% endif %}
+    {% endif %}
+
+    {% if current_user.pode_ver_ferramenta('manutencao')
+          or current_user.pode_ver_ferramenta('compras') %}
+    <div class="sb-sec">Setores</div>
     {% if current_user.pode_ver_ferramenta('manutencao') %}
-    <a class="sb-item {% if request.path == url_for('manutencao.index') %}ativo{% endif %}"
-       href="{{ url_for('manutencao.index') }}">{{ icone('wrench') }} Manutenções</a>
+    <span class="sb-item sb-item-inativo">{{ icone('wrench') }} Manutenções
+      <span class="sb-breve">Em breve</span></span>
     {% endif %}
     {% if current_user.pode_ver_ferramenta('compras') %}
-    <a class="sb-item {% if request.path == url_for('compras.index') %}ativo{% endif %}"
-       href="{{ url_for('compras.index') }}">{{ icone('receipt') }} Compras</a>
+    <span class="sb-item sb-item-inativo">{{ icone('receipt') }} Compras
+      <span class="sb-breve">Em breve</span></span>
+    {% endif %}
+    {% endif %}
+
+    {% if current_user.pode_ver_ferramenta('atas') %}
+    <div class="sb-sec">Escritório</div>
+    <a class="sb-item {% if request.blueprint == 'atas' %}ativo{% endif %}"
+       href="{{ url_for('atas.index') }}">{{ icone('clipboard') }} Assistente de Atas</a>
     {% endif %}
 
     {% if current_user.is_admin %}
