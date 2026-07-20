@@ -16,9 +16,10 @@ from flask_login import current_user, login_required
 
 from config import UPLOAD_DIR
 from extensions import db
-from models import (FotoManutencao, Manutencao, ObraEntregue, Usuario,
-                    eh_gestor_manutencao, manutencao_do_usuario,
-                    obra_entregue_do_gestor, registrar_atividade)
+from models import (STATUS_MANUTENCAO, FotoManutencao, Manutencao,
+                    ObraEntregue, Usuario, eh_gestor_manutencao,
+                    manutencao_do_usuario, obra_entregue_do_gestor,
+                    registrar_atividade)
 from utils import foto_abs_path, processar_imagem
 
 bp = Blueprint("manutencao", __name__)
@@ -69,11 +70,22 @@ def _agrupar_semana(manutencoes, hoje=None):
 def index():
     if eh_gestor_manutencao():
         obras = ObraEntregue.query.order_by(ObraEntregue.cliente).all()
-        proximas = (Manutencao.query.filter(Manutencao.status != "concluida")
-                    .order_by(Manutencao.data_agendada).limit(30).all())
+        # Kanban do setor (Fase 2b): pendentes por data (sem data por último);
+        # concluídas da mais recente para a mais antiga, limitadas.
+        pendentes = sorted(
+            Manutencao.query.filter(Manutencao.status != "concluida").all(),
+            key=lambda m: (m.data_agendada is None,
+                           m.data_agendada or date.max))
+        colunas = {
+            "agendada": [m for m in pendentes if m.status != "em_execucao"],
+            "em_execucao": [m for m in pendentes
+                            if m.status == "em_execucao"],
+            "concluida": (Manutencao.query.filter_by(status="concluida")
+                          .order_by(Manutencao.concluida_em.desc())
+                          .limit(30).all()),
+        }
         return render_template("manutencao.html", obras=obras,
-                               grupos=_agrupar_semana(proximas),
-                               hoje=date.today())
+                               colunas=colunas, hoje=date.today())
     minhas = (Manutencao.query
               .filter_by(responsavel_id=current_user.id)
               .order_by(Manutencao.data_agendada).all())
@@ -189,6 +201,24 @@ def agendar(obra_id):
 # ---------------------------------------------------------------------------
 # Execução (responsável ou gestor)
 # ---------------------------------------------------------------------------
+@bp.route("/manutencao/<int:manutencao_id>/status", methods=["POST"])
+@login_required
+def mudar_status(manutencao_id):
+    """Arrastar no kanban: agendada ↔ em_execucao. Concluir NÃO passa por
+    aqui (rota própria, com descrição obrigatória); reabrir concluída fica
+    fora do escopo da Fase 2b."""
+    m = manutencao_do_usuario(manutencao_id)
+    status = (request.form.get("status") or "").strip()
+    if status not in STATUS_MANUTENCAO or status == "concluida":
+        return jsonify({"erro": "Status inválido."}), 400
+    if m.status == "concluida":
+        return jsonify({"erro": "Manutenção concluída não pode ser "
+                        "reaberta."}), 400
+    m.status = status
+    db.session.commit()
+    return jsonify({"ok": True, "status": status})
+
+
 @bp.route("/manutencao/<int:manutencao_id>/concluir", methods=["POST"])
 @login_required
 def concluir(manutencao_id):

@@ -234,3 +234,79 @@ def test_so_gestor_exclui_manutencao(client, setor):
                  .status_code == 200
     db.session.expire_all()
     assert db.session.get(Manutencao, setor["m"].id) is None
+
+
+# ---------------------------------------------------------------------------
+# Kanban do setor (Fase 2b — specs/fase2b-manutencao-kanban.md)
+# ---------------------------------------------------------------------------
+def test_status_gestor_e_responsavel_movem(client, setor):
+    m_id = setor["m"].id
+    login(client, "exec1@teste.com")   # responsável
+    resp = client.post(f"/manutencao/{m_id}/status",
+                       data={"status": "em_execucao"})
+    assert resp.status_code == 200
+    db.session.expire_all()
+    assert db.session.get(Manutencao, m_id).status == "em_execucao"
+    client.get("/logout")
+
+    login(client, "setor@teste.com")   # gestor move de volta
+    resp = client.post(f"/manutencao/{m_id}/status",
+                       data={"status": "agendada"})
+    assert resp.status_code == 200
+    db.session.expire_all()
+    assert db.session.get(Manutencao, m_id).status == "agendada"
+
+
+def test_status_400_para_invalido_e_concluida(client, setor):
+    m_id = setor["m"].id
+    login(client, "setor@teste.com")
+    assert client.post(f"/manutencao/{m_id}/status",
+                       data={"status": "pausada"}).status_code == 400
+    # Concluir não passa pelo /status (descrição é obrigatória lá).
+    assert client.post(f"/manutencao/{m_id}/status",
+                       data={"status": "concluida"}).status_code == 400
+    db.session.expire_all()
+    assert db.session.get(Manutencao, m_id).status == "agendada"
+
+
+def test_status_nao_reabre_concluida(client, setor):
+    m = _manutencao(setor["obra"].id, "Já fechada", status="concluida")
+    login(client, "setor@teste.com")
+    assert client.post(f"/manutencao/{m.id}/status",
+                       data={"status": "agendada"}).status_code == 400
+    db.session.expire_all()
+    assert db.session.get(Manutencao, m.id).status == "concluida"
+
+
+def test_status_executor_de_fora_e_sem_ferramenta(client, setor):
+    m_id = setor["m"].id
+    login(client, "exec2@teste.com")   # tem a ferramenta, não é o responsável
+    assert client.post(f"/manutencao/{m_id}/status",
+                       data={"status": "em_execucao"}).status_code == 404
+    client.get("/logout")
+    login(client, "sem@teste.com")     # sem a ferramenta
+    assert client.post(f"/manutencao/{m_id}/status",
+                       data={"status": "em_execucao"}).status_code == 403
+    db.session.expire_all()
+    assert db.session.get(Manutencao, m_id).status == "agendada"
+
+
+def test_em_execucao_conta_como_pendente_na_semana(client, setor):
+    setor["m"].status = "em_execucao"
+    db.session.commit()
+    login(client, "exec1@teste.com")
+    corpo = client.get("/manutencao").get_data(as_text=True)
+    assert "Revisar infiltração da sacada" in corpo   # segue na semana dele
+
+
+def test_kanban_do_gestor_mostra_colunas_e_cards(client, setor):
+    _manutencao(setor["obra"].id, "Trocar rejunte", status="em_execucao")
+    login(client, "setor@teste.com")
+    resp = client.get("/manutencao")
+    assert resp.status_code == 200
+    corpo = resp.get_data(as_text=True)
+    for coluna in ("Agendada", "Em execução", "Concluída"):
+        assert coluna in corpo
+    assert "Revisar infiltração da sacada" in corpo
+    assert "Trocar rejunte" in corpo
+    assert "Cobertura 14" in corpo   # card do quadro geral mostra o cliente

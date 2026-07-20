@@ -16,9 +16,15 @@
   <section class="tarefas-grupo {{ classe }}">
     <h2>{{ titulo }} <span class="muted">({{ tarefas|length }})</span></h2>
     {% for t in tarefas %}
+    {% set feitos, total = t.progresso_checklist() %}
     <div class="tarefa-item">
       <div class="tarefa-info">
-        <strong>{{ t.titulo }}</strong>
+        <strong>
+          <span class="prio-dot prio-{{ t.prioridade if t.prioridade in ('alta', 'media', 'baixa') else 'media' }}"
+                title="Prioridade {{ t.prioridade or 'media' }}"></span>
+          {{ t.titulo }}
+          {% if total %}<span class="check-progresso">{{ feitos }}/{{ total }}</span>{% endif %}
+        </strong>
         <p class="muted">
           {{ t.obra.nome }}
           {% if t.prazo %} · prazo {{ t.prazo.strftime("%d/%m/%Y") }}{% endif %}

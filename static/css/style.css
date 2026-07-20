@@ -646,8 +646,9 @@ body.has-sidebar .conteudo { margin-left: 260px; }
   content: ""; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 3px;
   background: var(--red-bright); border-radius: 0 3px 3px 0;
 }
-.sb-item-inativo { color: rgba(255, 255, 255, .4); }
+.sb-item-inativo { color: rgba(255, 255, 255, .4); cursor: default; }
 .sb-item-inativo svg { color: rgba(255, 255, 255, .3); }
+.sb-item-inativo:hover { background: none; color: rgba(255, 255, 255, .4); }
 .sb-breve {
   margin-left: auto; font-size: .58rem; text-transform: uppercase; letter-spacing: .05em;
   background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .6); padding: 2px 7px; border-radius: 20px; font-weight: 700;
@@ -931,3 +932,60 @@ html, body { overflow-x: hidden; overflow-x: clip; }
   border-radius: 999px; background: #d9534f; color: #fff;
   font-size: .72rem; font-weight: 700; text-align: center;
 }
+
+/* ------------------------------------------------ Kanban (Fase 1b) */
+.kanban {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  align-items: start; margin: 20px 0;
+}
+@media (max-width: 760px) {
+  /* No celular as colunas empilham; o select de status é o caminho. */
+  .kanban { grid-template-columns: 1fr; }
+}
+.kanban-col {
+  background: var(--fundo2, #f6f6f4); border: 1px solid var(--borda, #e3e3e3);
+  border-radius: 12px; padding: 10px 12px; min-height: 120px;
+}
+.kanban-col h2 { font-size: 1rem; margin: 4px 2px 10px; }
+.kanban-col.drop-alvo { outline: 2px dashed #8a8a8a; outline-offset: -4px; }
+.kanban-card {
+  background: var(--card, #fff); border: 1px solid var(--borda, #e3e3e3);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+}
+.kanban-card[draggable="true"] { cursor: grab; }
+.kanban-card.card-concluida { opacity: .65; }
+.kanban-card-head { display: flex; align-items: center; gap: 8px; }
+.kanban-card-meta { margin: 4px 0 0; font-size: .85rem; }
+.kanban-card-detalhe { margin-top: 8px; font-size: .9rem; }
+.kanban-card-detalhe summary { cursor: pointer; color: #666; font-size: .85rem; }
+.kanban-card-rodape { margin-top: 10px; }
+.kanban-campo { display: block; margin: 8px 0; font-size: .85rem; }
+.kanban-campo select { display: block; margin-top: 2px; }
+
+/* Prioridade: bolinha no card ("destaque visual" da spec). */
+.prio-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  flex: none; vertical-align: baseline;
+}
+.prio-alta { background: #d9534f; }
+.prio-media { background: #f0ad4e; }
+.prio-baixa { background: #b8b8b2; }
+
+.prazo-atrasado { color: #d9534f; font-weight: 700; }
+
+/* Checklist e o "2/5" do card. */
+.check-progresso {
+  margin-left: auto; font-size: .75rem; font-weight: 700; color: #666;
+  background: var(--fundo2, #f0f0ec); border-radius: 999px; padding: 1px 8px;
+}
+.tarefa-info .check-progresso { margin-left: 6px; }
+.checklist { margin-top: 8px; }
+.checklist-item {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; padding: 3px 0;
+}
+.checklist-item label { display: flex; align-items: center; gap: 6px; }
+.checklist-acoes { display: flex; gap: 2px; }
+.item-feito { text-decoration: line-through; color: #999; }
+.checklist-nova { display: flex; gap: 6px; margin-top: 8px; }
+.checklist-nova input { flex: 1; min-width: 0; }

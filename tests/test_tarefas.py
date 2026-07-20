@@ -10,7 +10,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from extensions import db
-from models import Obra, Tarefa
+from models import ItemChecklist, Obra, Tarefa
 
 from .conftest import _criar_usuario, login
 
@@ -215,3 +215,189 @@ def test_minha_semana_so_mostra_as_minhas(client, equipe):
     corpo = resp.get_data(as_text=True)
     assert "Conferir alvenaria" in corpo
     assert "Do estagiario" not in corpo
+
+
+# ---------------------------------------------------------------------------
+# Prioridade (Fase 1b — specs/fase1b-agenda-kanban.md)
+# ---------------------------------------------------------------------------
+def test_prioridade_default_valida_e_400(client, equipe):
+    login(client, "eng@teste.com")
+    obra_id = equipe["obra"].id
+
+    resp = client.post(f"/obra/{obra_id}/tarefas/criar",
+                       data={"titulo": "Sem prioridade"})
+    assert resp.status_code == 200
+    sem = db.session.get(Tarefa, resp.get_json()["id"])
+    assert sem.prioridade == "media"
+
+    resp = client.post(f"/obra/{obra_id}/tarefas/criar",
+                       data={"titulo": "Urgente", "prioridade": "alta"})
+    assert resp.status_code == 200
+    alta_id = resp.get_json()["id"]
+    assert db.session.get(Tarefa, alta_id).prioridade == "alta"
+
+    resp = client.post(f"/tarefa/{alta_id}/editar",
+                       data={"prioridade": "urgentissima"})
+    assert resp.status_code == 400
+    db.session.expire_all()
+    assert db.session.get(Tarefa, alta_id).prioridade == "alta"
+
+    resp = client.post(f"/tarefa/{alta_id}/editar",
+                       data={"prioridade": "baixa"})
+    assert resp.status_code == 200
+    db.session.expire_all()
+    assert db.session.get(Tarefa, alta_id).prioridade == "baixa"
+
+    # Campo presente mas vazio na edição mantém o valor (não rebaixa p/ media).
+    resp = client.post(f"/tarefa/{alta_id}/editar",
+                       data={"prioridade": "", "titulo": "Urgente mesmo"})
+    assert resp.status_code == 200
+    db.session.expire_all()
+    assert db.session.get(Tarefa, alta_id).prioridade == "baixa"
+
+
+def test_minha_semana_ordena_por_prioridade_no_grupo(client, equipe):
+    from blueprints.tarefas import agrupar_por_prazo
+    obra_id, enc_id = equipe["obra"].id, equipe["enc"].id
+    # Grupo "atrasadas": estável em qualquer dia da semana (o grupo "semana"
+    # encolhe até 1 dia no domingo e tornaria o teste flaky por calendário).
+    ontem, anteontem = HOJE - timedelta(days=1), HOJE - timedelta(days=2)
+    baixa = _tarefa(obra_id, "Baixa", enc_id, anteontem)   # a mais atrasada
+    alta = _tarefa(obra_id, "Alta", enc_id, ontem)
+    media = _tarefa(obra_id, "Media", enc_id, ontem)
+    baixa.prioridade, alta.prioridade = "baixa", "alta"
+    db.session.commit()
+
+    grupos = agrupar_por_prazo([baixa, media, alta], hoje=HOJE)
+    # Prioridade manda: 'baixa' é a mais atrasada mas fica por último.
+    assert [t.titulo for t in grupos["atrasadas"]] == ["Alta", "Media", "Baixa"]
+
+
+# ---------------------------------------------------------------------------
+# Checklist (Fase 1b): gerencia quem gerencia a tarefa; responsável marca
+# ---------------------------------------------------------------------------
+def _item(tarefa_id, texto, feito=False):
+    item = ItemChecklist(tarefa_id=tarefa_id, texto=texto, feito=feito)
+    db.session.add(item)
+    db.session.commit()
+    return item
+
+
+def test_engenheiro_gerencia_checklist(client, equipe):
+    login(client, "eng@teste.com")
+    tarefa_id = equipe["tarefa"].id
+
+    resp = client.post(f"/tarefa/{tarefa_id}/checklist/criar",
+                       data={"texto": "Armar ferragem"})
+    assert resp.status_code == 200
+    item_id = resp.get_json()["id"]
+
+    resp = client.post(f"/checklist/{item_id}/editar",
+                       data={"texto": "Armar ferragem da laje"})
+    assert resp.status_code == 200
+
+    resp = client.post(f"/checklist/{item_id}/feito", data={"feito": "1"})
+    assert resp.status_code == 200
+    assert resp.get_json() == {"ok": True, "feitos": 1, "total": 1}
+    db.session.expire_all()
+    item = db.session.get(ItemChecklist, item_id)
+    assert item.texto == "Armar ferragem da laje" and item.feito
+
+    assert client.post(f"/checklist/{item_id}/excluir").status_code == 200
+    db.session.expire_all()
+    assert db.session.get(ItemChecklist, item_id) is None
+
+
+def test_responsavel_marca_mas_nao_gerencia_checklist(client, equipe):
+    item = _item(equipe["tarefa"].id, "Conferir prumo")
+    login(client, "enc@teste.com")   # responsável pela tarefa
+
+    resp = client.post(f"/checklist/{item.id}/feito", data={"feito": "true"})
+    assert resp.status_code == 200
+    db.session.expire_all()
+    assert db.session.get(ItemChecklist, item.id).feito
+
+    tarefa_id = equipe["tarefa"].id
+    assert client.post(f"/tarefa/{tarefa_id}/checklist/criar",
+                       data={"texto": "novo"}).status_code == 403
+    assert client.post(f"/checklist/{item.id}/editar",
+                       data={"texto": "mudado"}).status_code == 403
+    assert client.post(f"/checklist/{item.id}/excluir").status_code == 403
+    db.session.expire_all()
+    assert db.session.get(ItemChecklist, item.id).texto == "Conferir prumo"
+
+
+def test_membro_nao_responsavel_nao_marca_checklist(client, equipe):
+    item = _item(equipe["tarefa"].id, "Conferir prumo")
+    login(client, "est@teste.com")   # membro, mas a tarefa é do encarregado
+    resp = client.post(f"/checklist/{item.id}/feito", data={"feito": "1"})
+    assert resp.status_code == 403
+    db.session.expire_all()
+    assert not db.session.get(ItemChecklist, item.id).feito
+
+
+def test_nao_membro_nao_ve_checklist(client, equipe):
+    # Isolamento (padrão test_isolamento.py): modelo novo, 404 e banco intocado.
+    item = _item(equipe["tarefa"].id, "Conferir prumo")
+    login(client, "fora@teste.com")
+    tarefa_id = equipe["tarefa"].id
+    assert client.post(f"/tarefa/{tarefa_id}/checklist/criar",
+                       data={"texto": "invasao"}).status_code == 404
+    assert client.post(f"/checklist/{item.id}/editar",
+                       data={"texto": "invadido"}).status_code == 404
+    assert client.post(f"/checklist/{item.id}/feito",
+                       data={"feito": "1"}).status_code == 404
+    assert client.post(f"/checklist/{item.id}/excluir").status_code == 404
+    db.session.expire_all()
+    item = db.session.get(ItemChecklist, item.id)
+    assert (item is not None and item.texto == "Conferir prumo"
+            and not item.feito)
+    assert ItemChecklist.query.count() == 1
+
+
+def test_checklist_validacoes_400(client, equipe):
+    item = _item(equipe["tarefa"].id, "Conferir prumo")
+    login(client, "eng@teste.com")
+    assert client.post(f"/tarefa/{equipe['tarefa'].id}/checklist/criar",
+                       data={"texto": "  "}).status_code == 400
+    assert client.post(f"/checklist/{item.id}/editar",
+                       data={"texto": ""}).status_code == 400
+    assert client.post(f"/checklist/{item.id}/feito",
+                       data={"feito": "sim"}).status_code == 400
+
+
+def test_kanban_mostra_colunas_prioridade_e_progresso(client, equipe):
+    # UI da spec: 3 colunas, bolinha de prioridade e "1/2" no card.
+    equipe["tarefa"].prioridade = "alta"
+    db.session.commit()
+    _item(equipe["tarefa"].id, "Item feito", feito=True)
+    _item(equipe["tarefa"].id, "Item pendente")
+    login(client, "eng@teste.com")
+    resp = client.get(f"/obra/{equipe['obra'].id}/tarefas")
+    assert resp.status_code == 200
+    corpo = resp.get_data(as_text=True)
+    for coluna in ("Pendente", "Em andamento", "Concluída"):
+        assert coluna in corpo
+    assert "prio-alta" in corpo
+    assert "1/2" in corpo
+    assert "Item pendente" in corpo
+
+
+def test_minha_semana_mostra_prioridade_e_progresso(client, equipe):
+    _item(equipe["tarefa"].id, "Item feito", feito=True)
+    _item(equipe["tarefa"].id, "Item pendente")
+    login(client, "enc@teste.com")   # responsável pela tarefa
+    corpo = client.get("/tarefas").get_data(as_text=True)
+    assert "prio-media" in corpo   # default da tarefa do fixture
+    assert "1/2" in corpo
+
+
+def test_excluir_tarefa_leva_checklist_junto(client, equipe):
+    # Sem órfãos — a FK fiscalizada no SQLite pegaria regressão aqui.
+    _item(equipe["tarefa"].id, "Item 1")
+    _item(equipe["tarefa"].id, "Item 2")
+    login(client, "eng@teste.com")
+    assert client.post(
+        f"/tarefa/{equipe['tarefa'].id}/excluir").status_code == 200
+    db.session.expire_all()
+    assert ItemChecklist.query.count() == 0

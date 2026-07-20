@@ -11,13 +11,27 @@ from datetime import date, datetime, timedelta
 from flask import (Blueprint, abort, jsonify, redirect, render_template,
                    request, url_for)
 from flask_login import current_user, login_required
+from sqlalchemy import func
 
 from extensions import db
-from models import (PAPEIS, STATUS_TAREFA, Obra, Tarefa, Usuario,
-                    eh_membro_da_obra, obra_do_membro, pode_gerenciar_tarefas,
+from models import (PAPEIS, PRIORIDADES_TAREFA, STATUS_TAREFA, ItemChecklist,
+                    Obra, Tarefa, Usuario, eh_membro_da_obra,
+                    item_checklist_do_membro, obra_do_membro,
+                    pode_gerenciar_tarefas, pode_mudar_andamento,
                     registrar_atividade, tarefa_do_membro)
 
 bp = Blueprint("tarefas", __name__)
+
+# Prioridade desconhecida no banco (edição manual, import) degrada para
+# 'media' na ordenação em vez de derrubar a página com ValueError.
+_ORDEM_PRIORIDADE = {p: i for i, p in enumerate(PRIORIDADES_TAREFA)}
+
+
+def _chave_prioridade_prazo(t):
+    """Ordenação padrão das listas: prioridade (alta primeiro), depois prazo
+    (sem prazo por último)."""
+    return (_ORDEM_PRIORIDADE.get(t.prioridade, _ORDEM_PRIORIDADE["media"]),
+            t.prazo is None, t.prazo or date.max)
 
 
 @bp.before_request
@@ -36,12 +50,13 @@ def _fim_da_semana(hoje):
 def agrupar_por_prazo(tarefas, hoje=None):
     """Grupos da visão "minha semana" (concluídas ficam de fora):
     atrasadas (prazo passou) / semana (até domingo) / próximas (resto,
-    sem prazo por último). Cada grupo ordenado por prazo."""
+    sem prazo por último). Dentro de cada grupo: prioridade (alta
+    primeiro) e depois prazo."""
     hoje = hoje or date.today()
     domingo = _fim_da_semana(hoje)
     grupos = {"atrasadas": [], "semana": [], "proximas": []}
     pendentes = sorted((t for t in tarefas if t.status != "concluida"),
-                       key=lambda t: (t.prazo is None, t.prazo or date.max))
+                       key=_chave_prioridade_prazo)
     for t in pendentes:
         if t.prazo and t.prazo < hoje:
             grupos["atrasadas"].append(t)
@@ -75,6 +90,24 @@ def _ler_prazo(valor):
         return None, "Prazo inválido: use o formato AAAA-MM-DD."
 
 
+def _ler_prioridade(valor):
+    """'' → 'media' (default); senão precisa ser uma das PRIORIDADES_TAREFA."""
+    valor = (valor or "").strip().lower()
+    if not valor:
+        return "media", None
+    if valor not in PRIORIDADES_TAREFA:
+        return None, "Prioridade inválida: use alta, media ou baixa."
+    return valor, None
+
+
+def _ler_texto_item(valor):
+    """Texto de item do checklist: obrigatório (não pode ficar vazio)."""
+    valor = (valor or "").strip()
+    if not valor:
+        return None, "Escreva o item do checklist."
+    return valor, None
+
+
 def _ler_responsavel(valor, obra):
     """'' → sem responsável; senão precisa ser membro da obra."""
     valor = (valor or "").strip()
@@ -106,17 +139,22 @@ def index():
 @login_required
 def obra_tarefas(obra_id):
     obra = obra_do_membro(obra_id)
-    pendentes = agrupar_por_prazo(obra.tarefas)
-    concluidas = sorted((t for t in obra.tarefas if t.status == "concluida"),
-                        key=lambda t: t.concluida_em or "", reverse=True)
+    # Quadro kanban (Fase 1b): uma coluna por status. Pendentes e em andamento
+    # por prioridade/prazo; concluídas da mais recente para a mais antiga.
+    colunas = {s: [] for s in STATUS_TAREFA}
+    for t in obra.tarefas:
+        colunas.get(t.status, colunas["pendente"]).append(t)
+    for s in ("pendente", "em_andamento"):
+        colunas[s].sort(key=_chave_prioridade_prazo)
+    colunas["concluida"].sort(key=lambda t: t.concluida_em or "", reverse=True)
     # Quem pode ser responsável: dono + membros (sem repetir).
     membros = {obra.usuario.id: obra.usuario}
     membros.update({m.id: m for m in obra.membros})
     return render_template(
-        "obra_tarefas.html", obra=obra, grupos=pendentes,
-        concluidas=concluidas, membros=list(membros.values()),
+        "obra_tarefas.html", obra=obra, colunas=colunas,
+        membros=list(membros.values()),
         pode_gerenciar=pode_gerenciar_tarefas(obra), papeis=PAPEIS,
-        hoje=date.today())
+        prioridades=PRIORIDADES_TAREFA, hoje=date.today())
 
 
 # ---------------------------------------------------------------------------
@@ -138,11 +176,15 @@ def criar_tarefa(obra_id):
         request.form.get("responsavel_id"), obra)
     if erro:
         return jsonify({"erro": erro}), 400
+    prioridade, erro = _ler_prioridade(request.form.get("prioridade"))
+    if erro:
+        return jsonify({"erro": erro}), 400
 
     tarefa = Tarefa(obra_id=obra.id, titulo=titulo,
                     descricao=(request.form.get("descricao") or "").strip(),
                     responsavel_id=responsavel_id, criador_id=current_user.id,
-                    prazo=prazo, criado_em=datetime.now().isoformat())
+                    prazo=prazo, prioridade=prioridade,
+                    criado_em=datetime.now().isoformat())
     db.session.add(tarefa)
     db.session.commit()
     registrar_atividade("tarefa_criada",
@@ -175,6 +217,13 @@ def editar_tarefa(tarefa_id):
         if erro:
             return jsonify({"erro": erro}), 400
         tarefa.responsavel_id = responsavel_id
+    # Vazio na edição mantém o valor atual (diferente de criar, onde vazio
+    # vira o default) — um form que sempre envia o campo não rebaixa a tarefa.
+    if (request.form.get("prioridade") or "").strip():
+        prioridade, erro = _ler_prioridade(request.form.get("prioridade"))
+        if erro:
+            return jsonify({"erro": erro}), 400
+        tarefa.prioridade = prioridade
     db.session.commit()
     return jsonify({"ok": True})
 
@@ -183,8 +232,7 @@ def editar_tarefa(tarefa_id):
 @login_required
 def mudar_status(tarefa_id):
     tarefa = tarefa_do_membro(tarefa_id)
-    if not (pode_gerenciar_tarefas(tarefa.obra)
-            or tarefa.responsavel_id == current_user.id):
+    if not pode_mudar_andamento(tarefa):
         abort(403)
     status = (request.form.get("status") or "").strip()
     if status not in STATUS_TAREFA:
@@ -211,6 +259,72 @@ def excluir_tarefa(tarefa_id):
     db.session.commit()
     registrar_atividade("tarefa_excluida", f"Excluiu a tarefa '{titulo}'",
                         obra_id=tarefa.obra_id)
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Checklist (subtarefas) — spec: specs/fase1b-agenda-kanban.md
+# Criar/editar/excluir itens: quem gerencia a tarefa. Marcar feito: também o
+# responsável (é o "andamento fino", mesma regra de mudar o status).
+# ---------------------------------------------------------------------------
+@bp.route("/tarefa/<int:tarefa_id>/checklist/criar", methods=["POST"])
+@login_required
+def criar_item_checklist(tarefa_id):
+    tarefa = tarefa_do_membro(tarefa_id)
+    if not pode_gerenciar_tarefas(tarefa.obra):
+        abort(403)
+    texto, erro = _ler_texto_item(request.form.get("texto"))
+    if erro:
+        return jsonify({"erro": erro}), 400
+    # Agregado no banco (não carrega a coleção); empate raro entre criações
+    # simultâneas fica estável pelo desempate por id no order_by do modelo.
+    ultima_ordem = (db.session.query(func.max(ItemChecklist.ordem))
+                    .filter(ItemChecklist.tarefa_id == tarefa.id)
+                    .scalar()) or 0
+    item = ItemChecklist(tarefa_id=tarefa.id, texto=texto,
+                         ordem=ultima_ordem + 1)
+    db.session.add(item)
+    db.session.commit()
+    return jsonify({"id": item.id, "texto": texto})
+
+
+@bp.route("/checklist/<int:item_id>/editar", methods=["POST"])
+@login_required
+def editar_item_checklist(item_id):
+    item = item_checklist_do_membro(item_id)
+    if not pode_gerenciar_tarefas(item.tarefa.obra):
+        abort(403)
+    texto, erro = _ler_texto_item(request.form.get("texto"))
+    if erro:
+        return jsonify({"erro": erro}), 400
+    item.texto = texto
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@bp.route("/checklist/<int:item_id>/feito", methods=["POST"])
+@login_required
+def marcar_item_checklist(item_id):
+    item = item_checklist_do_membro(item_id)
+    if not pode_mudar_andamento(item.tarefa):
+        abort(403)
+    valor = (request.form.get("feito") or "").strip().lower()
+    if valor not in ("0", "1", "true", "false"):
+        return jsonify({"erro": "Valor de 'feito' inválido."}), 400
+    item.feito = valor in ("1", "true")
+    db.session.commit()
+    feitos, total = item.tarefa.progresso_checklist()
+    return jsonify({"ok": True, "feitos": feitos, "total": total})
+
+
+@bp.route("/checklist/<int:item_id>/excluir", methods=["POST"])
+@login_required
+def excluir_item_checklist(item_id):
+    item = item_checklist_do_membro(item_id)
+    if not pode_gerenciar_tarefas(item.tarefa.obra):
+        abort(403)
+    db.session.delete(item)
+    db.session.commit()
     return jsonify({"ok": True})
 
 

@@ -180,21 +180,36 @@ def init_db():
         _resetar_admin_se_pedido(Usuario)
 
 
+def _adicionar_coluna(tabela, definicao):
+    """ALTER TABLE idempotente: ignora só "coluna já existe".
+
+    Qualquer outro erro sobe e derruba o init_db() — no deploy (startCommand
+    do Render) é melhor falhar na hora do que subir sem a coluna e dar 500
+    em runtime quando uma query tocar nela.
+    """
+    from sqlalchemy import text
+    try:
+        db.session.execute(text(f"ALTER TABLE {tabela} ADD COLUMN {definicao}"))
+        db.session.commit()
+        print(f"[MIGRACAO] Coluna {tabela}.{definicao.split()[0]} criada.")
+    except Exception as e:
+        db.session.rollback()
+        msg = str(e).lower()
+        # SQLite: "duplicate column name"; PostgreSQL: "already exists".
+        if "duplicate column" not in msg and "already exists" not in msg:
+            raise
+
+
 def _migrar_colunas():
     """Migrações leves: create_all() não altera tabelas que já existem.
 
-    Adiciona a coluna 'ferramentas' (permissão por ferramenta) em bancos
-    criados antes dela e libera todas as ferramentas para as contas antigas.
+    Cada coluna nova em tabela existente entra aqui via _adicionar_coluna
+    (o backfill de dados, quando preciso, vem logo depois).
     """
     from sqlalchemy import text
     from models import TODAS_FERRAMENTAS
-    try:
-        db.session.execute(text(
-            "ALTER TABLE usuarios ADD COLUMN ferramentas VARCHAR(255)"))
-        db.session.commit()
-        print("[MIGRACAO] Coluna usuarios.ferramentas criada.")
-    except Exception:
-        db.session.rollback()   # coluna já existe
+    # 'ferramentas' (permissão por ferramenta) + liberação para contas antigas.
+    _adicionar_coluna("usuarios", "ferramentas VARCHAR(255)")
     try:
         db.session.execute(
             text("UPDATE usuarios SET ferramentas = :t WHERE ferramentas IS NULL"),
@@ -202,22 +217,13 @@ def _migrar_colunas():
         db.session.commit()
     except Exception:
         db.session.rollback()
-    # Coluna 'geral' (seção de fotos sem cômodo) em bancos criados antes dela.
-    try:
-        db.session.execute(text(
-            "ALTER TABLE comodos ADD COLUMN geral BOOLEAN NOT NULL DEFAULT FALSE"))
-        db.session.commit()
-        print("[MIGRACAO] Coluna comodos.geral criada.")
-    except Exception:
-        db.session.rollback()   # coluna já existe
-    # Coluna 'papel' (Agenda de Tarefas) em bancos criados antes dela.
-    try:
-        db.session.execute(text(
-            "ALTER TABLE usuarios ADD COLUMN papel VARCHAR(20)"))
-        db.session.commit()
-        print("[MIGRACAO] Coluna usuarios.papel criada.")
-    except Exception:
-        db.session.rollback()   # coluna já existe
+    # 'geral' (seção de fotos sem cômodo).
+    _adicionar_coluna("comodos", "geral BOOLEAN NOT NULL DEFAULT FALSE")
+    # 'papel' (Agenda de Tarefas).
+    _adicionar_coluna("usuarios", "papel VARCHAR(20)")
+    # 'prioridade' (Fase 1b).
+    _adicionar_coluna("tarefas",
+                      "prioridade VARCHAR(10) NOT NULL DEFAULT 'media'")
 
 
 def _resetar_admin_se_pedido(Usuario):

@@ -135,6 +135,8 @@ class Foto(db.Model):
 # Ferramenta: Agenda de Tarefas
 # ---------------------------------------------------------------------------
 STATUS_TAREFA = ("pendente", "em_andamento", "concluida")
+# Da mais urgente para a menos: o índice serve de chave de ordenação.
+PRIORIDADES_TAREFA = ("alta", "media", "baixa")
 
 
 class Tarefa(db.Model):
@@ -154,12 +156,40 @@ class Tarefa(db.Model):
         db.Integer, db.ForeignKey("usuarios.id", ondelete="SET NULL"))
     prazo = db.Column(db.Date, index=True)
     status = db.Column(db.String(20), nullable=False, default="pendente")
+    prioridade = db.Column(db.String(10), nullable=False, default="media")
     criado_em = db.Column(db.String(40), nullable=False)
     concluida_em = db.Column(db.String(40))
 
     obra = db.relationship(
         "Obra", backref=db.backref("tarefas", cascade="all, delete-orphan"))
     responsavel = db.relationship("Usuario", foreign_keys=[responsavel_id])
+
+    def progresso_checklist(self):
+        """(feitos, total) — para o "2/5" no card; (0, 0) se não há checklist."""
+        return (sum(1 for i in self.checklist if i.feito), len(self.checklist))
+
+
+class ItemChecklist(db.Model):
+    """Subtarefa marcável ('concretar laje' → armar ferragem, pedir concreto…).
+
+    Some junto com a tarefa (CASCADE + delete-orphan): checklist não é
+    histórico, é andamento — diferente dos vínculos SET NULL acima.
+    """
+    __tablename__ = "tarefa_checklist"
+    id = db.Column(db.Integer, primary_key=True)
+    tarefa_id = db.Column(
+        db.Integer, db.ForeignKey("tarefas.id", ondelete="CASCADE"),
+        nullable=False, index=True)
+    texto = db.Column(db.String(255), nullable=False)
+    feito = db.Column(db.Boolean, nullable=False, default=False)
+    ordem = db.Column(db.Integer, nullable=False, default=0)
+
+    # Desempate por id: se dois itens empatarem em 'ordem' (criações quase
+    # simultâneas), a ordem exibida continua estável entre requisições.
+    tarefa = db.relationship(
+        "Tarefa", backref=db.backref(
+            "checklist", cascade="all, delete-orphan",
+            order_by="[ItemChecklist.ordem, ItemChecklist.id]"))
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +204,11 @@ class ObraEntregue(db.Model):
     fim_garantia = db.Column(db.Date)
     observacoes = db.Column(db.Text, default="")
     criado_em = db.Column(db.String(40), nullable=False)
+
+
+# Vocabulário do kanban do setor (Fase 2b). 'concluida' só entra pela rota
+# de conclusão (descrição obrigatória), nunca pelo POST /status.
+STATUS_MANUTENCAO = ("agendada", "em_execucao", "concluida")
 
 
 class Manutencao(db.Model):
@@ -414,6 +449,15 @@ def pode_gerenciar_tarefas(obra, usuario=None):
     return u.is_admin or obra.usuario_id == u.id or u.papel == "engenheiro"
 
 
+def pode_mudar_andamento(tarefa, usuario=None):
+    """Andamento da tarefa (status e itens do checklist): quem gerencia OU o
+    responsável. A spec exige que as duas rotas usem a mesma regra —
+    centralizada aqui para não divergirem."""
+    u = usuario if usuario is not None else current_user
+    return (pode_gerenciar_tarefas(tarefa.obra, u)
+            or tarefa.responsavel_id == u.id)
+
+
 def obra_do_membro(obra_id):
     """Obra visível na Agenda de Tarefas: membros; senão 404 (não vaza)."""
     obra = db.session.get(Obra, obra_id)
@@ -427,6 +471,13 @@ def tarefa_do_membro(tarefa_id):
     if tarefa is None or not eh_membro_da_obra(tarefa.obra):
         abort(404)
     return tarefa
+
+
+def item_checklist_do_membro(item_id):
+    item = db.session.get(ItemChecklist, item_id)
+    if item is None or not eh_membro_da_obra(item.tarefa.obra):
+        abort(404)
+    return item
 
 
 def eh_gestor_manutencao(usuario=None):

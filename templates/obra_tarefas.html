@@ -17,53 +17,109 @@
   {% endif %}
 </div>
 
-{% macro linha_tarefa(t) %}
-<div class="tarefa-item">
-  <div class="tarefa-info">
+{% set rotulos_status = {"pendente": "Pendente",
+                         "em_andamento": "Em andamento",
+                         "concluida": "Concluída"} %}
+{% set rotulos_prioridade = {"alta": "Alta", "media": "Média", "baixa": "Baixa"} %}
+
+{% macro card_tarefa(t) %}
+{% set pode_andamento = pode_gerenciar or t.responsavel_id == current_user.id %}
+{% set feitos, total = t.progresso_checklist() %}
+<div class="kanban-card {% if t.status == 'concluida' %}card-concluida{% endif %}"
+     id="card-{{ t.id }}" data-tarefa="{{ t.id }}"
+     {% if pode_andamento %}draggable="true"{% endif %}>
+  <div class="kanban-card-head">
+    <span class="prio-dot prio-{{ t.prioridade if t.prioridade in rotulos_prioridade else 'media' }}"
+          title="Prioridade {{ rotulos_prioridade.get(t.prioridade, 'Média')|lower }}"></span>
     <strong>{{ t.titulo }}</strong>
-    <p class="muted">
-      {% if t.responsavel %}{{ t.responsavel.nome or t.responsavel.email }}{% else %}Sem responsável{% endif %}
-      {% if t.prazo %} · prazo {{ t.prazo.strftime("%d/%m/%Y") }}{% endif %}
-      {% if t.status == "em_andamento" %} · em andamento{% endif %}
-      {% if t.descricao %} · {{ t.descricao }}{% endif %}
-    </p>
+    {% if total %}<span class="check-progresso" id="progresso-{{ t.id }}">{{ feitos }}/{{ total }}</span>{% endif %}
   </div>
-  <div class="tarefa-acoes">
-    {% if t.status != "concluida" %}
-      {% if pode_gerenciar or t.responsavel_id == current_user.id %}
-        {% if t.status == "pendente" %}
-        <button class="btn btn-sm" onclick="mudarStatus({{ t.id }}, 'em_andamento')">Iniciar</button>
-        {% endif %}
-        <button class="btn btn-sm btn-primary" onclick="mudarStatus({{ t.id }}, 'concluida')">Concluir</button>
-      {% endif %}
-    {% else %}
-      {% if pode_gerenciar or t.responsavel_id == current_user.id %}
-      <button class="btn btn-sm" onclick="mudarStatus({{ t.id }}, 'pendente')">Reabrir</button>
-      {% endif %}
+  <p class="muted kanban-card-meta">
+    {% if t.responsavel %}{{ t.responsavel.nome or t.responsavel.email }}{% else %}Sem responsável{% endif %}
+    {% if t.prazo %}
+    · <span class="{% if t.prazo < hoje and t.status != 'concluida' %}prazo-atrasado{% endif %}">
+        prazo {{ t.prazo.strftime("%d/%m/%Y") }}</span>
     {% endif %}
+  </p>
+  <details class="kanban-card-detalhe">
+    <summary>Detalhes</summary>
+    {% if t.descricao %}<p class="muted">{{ t.descricao }}</p>{% endif %}
+
+    {% if pode_andamento %}
+    {# Fallback do drag & drop (spec): o select de status continua existindo
+       e é o caminho no celular, onde arrastar é ruim. #}
+    <label class="kanban-campo">Status
+      <select onchange="mudarStatus({{ t.id }}, this.value, this)">
+        {% for s, rotulo in rotulos_status.items() %}
+        <option value="{{ s }}" {% if t.status == s %}selected{% endif %}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
+
     {% if pode_gerenciar %}
-    <button class="btn btn-sm btn-ghost-danger"
-            onclick="if (confirm('Excluir a tarefa {{ t.titulo }}?')) excluirTarefa({{ t.id }})">Excluir</button>
+    <label class="kanban-campo">Prioridade
+      <select onchange="mudarPrioridade({{ t.id }}, this)">
+        {% for p in prioridades %}
+        <option value="{{ p }}" {% if t.prioridade == p %}selected{% endif %}>{{ rotulos_prioridade[p] }}</option>
+        {% endfor %}
+      </select>
+    </label>
     {% endif %}
-  </div>
+
+    <div class="checklist" id="checklist-{{ t.id }}">
+      {% for item in t.checklist %}
+      <div class="checklist-item">
+        <label>
+          <input type="checkbox" {% if item.feito %}checked{% endif %}
+                 {% if not pode_andamento %}disabled{% endif %}
+                 onchange="marcarItem({{ item.id }}, {{ t.id }}, this)">
+          <span {% if item.feito %}class="item-feito"{% endif %}>{{ item.texto }}</span>
+        </label>
+        {% if pode_gerenciar %}
+        <span class="checklist-acoes">
+          <button type="button" class="btn btn-sm btn-ghost" title="Editar item"
+                  onclick="editarItem({{ item.id }}, {{ item.texto|tojson }})">✎</button>
+          <button type="button" class="btn btn-sm btn-ghost-danger" title="Excluir item"
+                  onclick="excluirItem({{ item.id }})">×</button>
+        </span>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if pode_gerenciar %}
+      <form class="checklist-nova" onsubmit="criarItem(event, {{ t.id }})">
+        <input type="text" name="texto" placeholder="Novo item do checklist" required>
+        <button type="submit" class="btn btn-sm">+ Item</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if pode_gerenciar %}
+    <div class="kanban-card-rodape">
+      <button type="button" class="btn btn-sm btn-ghost-danger"
+              onclick="if (confirm('Excluir a tarefa {{ t.titulo }}?')) excluirTarefa({{ t.id }})">
+        Excluir tarefa
+      </button>
+    </div>
+    {% endif %}
+  </details>
 </div>
 {% endmacro %}
 
-{% macro grupo(titulo, tarefas, classe) %}
-  {% if tarefas %}
-  <section class="tarefas-grupo {{ classe }}">
-    <h2>{{ titulo }} <span class="muted">({{ tarefas|length }})</span></h2>
-    {% for t in tarefas %}{{ linha_tarefa(t) }}{% endfor %}
+<div class="kanban">
+  {% for s, rotulo in rotulos_status.items() %}
+  <section class="kanban-col" data-status="{{ s }}"
+           ondragover="permitirSoltar(event)" ondragleave="sairSoltar(event)"
+           ondrop="soltarCard(event, '{{ s }}')">
+    <h2>{{ rotulo }} <span class="muted">({{ colunas[s]|length }})</span></h2>
+    <div class="kanban-col-cards">
+      {% for t in colunas[s] %}{{ card_tarefa(t) }}{% endfor %}
+    </div>
   </section>
-  {% endif %}
-{% endmacro %}
+  {% endfor %}
+</div>
 
-{{ grupo("⚠ Atrasadas", grupos.atrasadas, "grupo-atrasadas") }}
-{{ grupo("Esta semana", grupos.semana, "") }}
-{{ grupo("Próximas", grupos.proximas, "") }}
-{{ grupo("Concluídas", concluidas, "grupo-concluidas") }}
-
-{% if not grupos.atrasadas and not grupos.semana and not grupos.proximas and not concluidas %}
+{% if not colunas.pendente and not colunas.em_andamento and not colunas.concluida %}
 <div class="empty">
   <p>Nenhuma tarefa nesta obra ainda.</p>
   {% if pode_gerenciar %}
@@ -86,6 +142,13 @@
     </label>
     <label>Prazo (opcional)
       <input type="date" name="prazo">
+    </label>
+    <label>Prioridade
+      <select name="prioridade">
+        {% for p in prioridades %}
+        <option value="{{ p }}" {% if p == "media" %}selected{% endif %}>{{ rotulos_prioridade[p] }}</option>
+        {% endfor %}
+      </select>
     </label>
     <label>Responsável (opcional)
       <select name="responsavel_id">
@@ -111,30 +174,106 @@ function csrfToken() {
   return meta ? meta.getAttribute("content") : "";
 }
 async function postForm(url, fd) {
-  return fetch(url, { method: "POST", body: fd,
+  return fetch(url, { method: "POST", body: fd || new FormData(),
                       headers: { "X-CSRFToken": csrfToken() } });
 }
-async function mudarStatus(id, status) {
+async function erroDe(resp, padrao) {
+  const corpo = await resp.json().catch(() => ({}));
+  return corpo.erro || padrao;
+}
+
+// --- Status: select (fallback) recarrega; drag & drop move o card. --------
+async function mudarStatus(id, status, select) {
   const fd = new FormData();
   fd.append("status", status);
   const resp = await postForm(`/tarefa/${id}/status`, fd);
-  if (!resp.ok) { alert("Não foi possível atualizar a tarefa."); return; }
-  location.reload();
+  if (!resp.ok) {
+    alert(await erroDe(resp, "Não foi possível atualizar a tarefa."));
+    if (select) location.reload();   // volta o select ao valor real
+    return false;
+  }
+  if (select) location.reload();
+  return true;
 }
+
+// --- Drag & drop nativo (HTML5). A UI não pode mentir que salvou: o card
+// --- só muda de coluna de vez se o servidor confirmar; senão volta. -------
+let cardArrastado = null;
+document.addEventListener("dragstart", (ev) => {
+  const card = ev.target.closest && ev.target.closest(".kanban-card");
+  if (card) { cardArrastado = card; ev.dataTransfer.effectAllowed = "move"; }
+});
+function permitirSoltar(ev) {
+  if (!cardArrastado) return;
+  ev.preventDefault();
+  ev.currentTarget.classList.add("drop-alvo");
+}
+function sairSoltar(ev) { ev.currentTarget.classList.remove("drop-alvo"); }
+async function soltarCard(ev, status) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove("drop-alvo");
+  if (!cardArrastado) return;
+  const card = cardArrastado, origem = card.parentElement;
+  cardArrastado = null;
+  ev.currentTarget.querySelector(".kanban-col-cards").appendChild(card);
+  const ok = await mudarStatus(card.dataset.tarefa, status, null);
+  if (!ok) origem.appendChild(card);   // falhou: o card volta pra coluna original
+  else location.reload();              // reordena a coluna por prioridade/prazo
+}
+
+// --- Tarefa ---------------------------------------------------------------
 async function excluirTarefa(id) {
-  const resp = await postForm(`/tarefa/${id}/excluir`, new FormData());
-  if (!resp.ok) { alert("Não foi possível excluir a tarefa."); return; }
+  const resp = await postForm(`/tarefa/${id}/excluir`);
+  if (!resp.ok) { alert(await erroDe(resp, "Não foi possível excluir a tarefa.")); return; }
   location.reload();
 }
 async function criarTarefa(ev) {
   ev.preventDefault();
-  const form = ev.target;
-  const resp = await postForm(`/obra/{{ obra.id }}/tarefas/criar`, new FormData(form));
+  const resp = await postForm(`/obra/{{ obra.id }}/tarefas/criar`, new FormData(ev.target));
+  if (!resp.ok) { alert(await erroDe(resp, "Não foi possível criar a tarefa.")); return; }
+  location.reload();
+}
+async function mudarPrioridade(id, select) {
+  const fd = new FormData();
+  fd.append("prioridade", select.value);
+  const resp = await postForm(`/tarefa/${id}/editar`, fd);
+  if (!resp.ok) { alert(await erroDe(resp, "Não foi possível mudar a prioridade.")); }
+  location.reload();
+}
+
+// --- Checklist ------------------------------------------------------------
+async function criarItem(ev, tarefaId) {
+  ev.preventDefault();
+  const resp = await postForm(`/tarefa/${tarefaId}/checklist/criar`, new FormData(ev.target));
+  if (!resp.ok) { alert(await erroDe(resp, "Não foi possível criar o item.")); return; }
+  location.reload();
+}
+async function marcarItem(itemId, tarefaId, checkbox) {
+  const fd = new FormData();
+  fd.append("feito", checkbox.checked ? "1" : "0");
+  const resp = await postForm(`/checklist/${itemId}/feito`, fd);
   if (!resp.ok) {
-    const corpo = await resp.json().catch(() => ({}));
-    alert(corpo.erro || "Não foi possível criar a tarefa.");
+    checkbox.checked = !checkbox.checked;   // a UI não pode mentir que salvou
+    alert(await erroDe(resp, "Não foi possível marcar o item."));
     return;
   }
+  const { feitos, total } = await resp.json();
+  const badge = document.getElementById(`progresso-${tarefaId}`);
+  if (badge) badge.textContent = `${feitos}/${total}`;
+  checkbox.nextElementSibling.classList.toggle("item-feito", checkbox.checked);
+}
+async function editarItem(itemId, textoAtual) {
+  const texto = prompt("Editar item do checklist:", textoAtual);
+  if (texto === null) return;
+  const fd = new FormData();
+  fd.append("texto", texto);
+  const resp = await postForm(`/checklist/${itemId}/editar`, fd);
+  if (!resp.ok) { alert(await erroDe(resp, "Não foi possível editar o item.")); return; }
+  location.reload();
+}
+async function excluirItem(itemId) {
+  const resp = await postForm(`/checklist/${itemId}/excluir`);
+  if (!resp.ok) { alert(await erroDe(resp, "Não foi possível excluir o item.")); return; }
   location.reload();
 }
 </script>

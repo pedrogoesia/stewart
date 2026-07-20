@@ -13,32 +13,41 @@
   </button>
 </div>
 
-{% macro grupo(titulo, itens, classe) %}
-  {% if itens %}
-  <section class="tarefas-grupo {{ classe }}">
-    <h2>{{ titulo }} <span class="muted">({{ itens|length }})</span></h2>
-    {% for m in itens %}
-    <div class="tarefa-item">
-      <div class="tarefa-info">
-        <strong>{{ m.titulo }}</strong>
-        <p class="muted">
-          {{ m.obra.cliente }}
-          {% if m.responsavel %} · {{ m.responsavel.nome or m.responsavel.email }}{% endif %}
-          {% if m.data_agendada %} · {{ m.data_agendada.strftime("%d/%m/%Y") }}{% endif %}
-        </p>
-      </div>
-      <div class="tarefa-acoes">
-        <a class="btn btn-sm btn-ghost" href="{{ url_for('manutencao.obra_detalhe', obra_id=m.obra_entregue_id) }}">Abrir obra</a>
-      </div>
-    </div>
-    {% endfor %}
-  </section>
-  {% endif %}
+{% set rotulos_status = {"agendada": "Agendada",
+                         "em_execucao": "Em execução",
+                         "concluida": "Concluída"} %}
+
+{% macro card_manutencao(m) %}
+<div class="kanban-card {% if m.status == 'concluida' %}card-concluida{% endif %}"
+     data-manutencao="{{ m.id }}" data-titulo="{{ m.titulo }}"
+     {% if m.status != 'concluida' %}draggable="true"{% endif %}>
+  <div class="kanban-card-head"><strong>{{ m.titulo }}</strong></div>
+  <p class="muted kanban-card-meta">
+    {{ m.obra.cliente }}
+    {% if m.responsavel %} · {{ m.responsavel.nome or m.responsavel.email }}{% endif %}
+    {% if m.data_agendada %}
+    · <span class="{% if m.data_agendada < hoje and m.status != 'concluida' %}prazo-atrasado{% endif %}">
+        {{ m.data_agendada.strftime("%d/%m/%Y") }}</span>
+    {% endif %}
+  </p>
+  <p class="kanban-card-meta">
+    <a class="muted" href="{{ url_for('manutencao.obra_detalhe', obra_id=m.obra_entregue_id) }}">Abrir obra →</a>
+  </p>
+</div>
 {% endmacro %}
 
-{{ grupo("⚠ Atrasadas", grupos.atrasadas, "grupo-atrasadas") }}
-{{ grupo("Esta semana", grupos.semana, "") }}
-{{ grupo("Próximas", grupos.proximas, "") }}
+<div class="kanban">
+  {% for s, rotulo in rotulos_status.items() %}
+  <section class="kanban-col" data-status="{{ s }}"
+           ondragover="permitirSoltar(event)" ondragleave="sairSoltar(event)"
+           ondrop="soltarCard(event, '{{ s }}')">
+    <h2>{{ rotulo }} <span class="muted">({{ colunas[s]|length }})</span></h2>
+    <div class="kanban-col-cards">
+      {% for m in colunas[s] %}{{ card_manutencao(m) }}{% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>
 
 <section class="tarefas-grupo">
   <h2>Obras entregues</h2>
@@ -61,6 +70,22 @@
   <div class="empty"><p>Nenhuma obra entregue cadastrada ainda.</p></div>
   {% endif %}
 </section>
+
+<dialog id="concluir-manutencao" class="modal">
+  <form onsubmit="confirmarConclusao(event)">
+    <h3>Concluir manutenção</h3>
+    <p class="muted" id="concluir-titulo"></p>
+    <label>Serviço realizado (obrigatório)
+      <textarea name="descricao_realizada" required rows="3"
+                placeholder="Descreva o que foi feito"></textarea>
+    </label>
+    <p class="muted">Fotos do serviço podem ser anexadas na página da obra.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="cancelarConclusao()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Concluir</button>
+    </div>
+  </form>
+</dialog>
 
 <dialog id="nova-obra-entregue" class="modal">
   <form onsubmit="criarObraEntregue(event)">
@@ -94,15 +119,85 @@ function csrfToken() {
   const meta = document.querySelector('meta[name="csrf-token"]');
   return meta ? meta.getAttribute("content") : "";
 }
+async function postForm(url, fd) {
+  return fetch(url, { method: "POST", body: fd || new FormData(),
+                      headers: { "X-CSRFToken": csrfToken() } });
+}
+async function erroDe(resp, padrao) {
+  const corpo = await resp.json().catch(() => ({}));
+  return corpo.erro || padrao;
+}
 async function criarObraEntregue(ev) {
   ev.preventDefault();
-  const resp = await fetch("/manutencao/obras/criar", {
-    method: "POST", body: new FormData(ev.target),
-    headers: { "X-CSRFToken": csrfToken() },
-  });
+  const resp = await postForm("/manutencao/obras/criar", new FormData(ev.target));
+  if (!resp.ok) { alert(await erroDe(resp, "Não foi possível cadastrar.")); return; }
+  location.reload();
+}
+
+// --- Drag & drop (contrato da Fase 1b): o card só fica na coluna nova se o
+// --- servidor confirmar; falha ou cancelamento → volta pra origem. --------
+let cardArrastado = null;
+document.addEventListener("dragstart", (ev) => {
+  const card = ev.target.closest && ev.target.closest(".kanban-card");
+  if (card) { cardArrastado = card; ev.dataTransfer.effectAllowed = "move"; }
+});
+function permitirSoltar(ev) {
+  if (!cardArrastado) return;
+  ev.preventDefault();
+  ev.currentTarget.classList.add("drop-alvo");
+}
+function sairSoltar(ev) { ev.currentTarget.classList.remove("drop-alvo"); }
+async function soltarCard(ev, status) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove("drop-alvo");
+  if (!cardArrastado) return;
+  const card = cardArrastado, origem = card.parentElement;
+  cardArrastado = null;
+  ev.currentTarget.querySelector(".kanban-col-cards").appendChild(card);
+  if (status === "concluida") {
+    // Concluir exige descrição: abre o diálogo; só conclui no submit.
+    abrirConclusao(card, origem);
+    return;
+  }
+  const resp = await postForm(`/manutencao/${card.dataset.manutencao}/status`,
+                              (() => { const fd = new FormData();
+                                       fd.append("status", status);
+                                       return fd; })());
   if (!resp.ok) {
-    const corpo = await resp.json().catch(() => ({}));
-    alert(corpo.erro || "Não foi possível cadastrar."); return;
+    alert(await erroDe(resp, "Não foi possível mover a manutenção."));
+    origem.appendChild(card);
+  } else {
+    location.reload();
+  }
+}
+
+// --- Conclusão via kanban -------------------------------------------------
+let conclusaoPendente = null;   // {card, origem}
+function abrirConclusao(card, origem) {
+  conclusaoPendente = { card, origem };
+  document.getElementById("concluir-titulo").textContent = card.dataset.titulo;
+  const dlg = document.getElementById("concluir-manutencao");
+  dlg.querySelector("textarea").value = "";
+  dlg.showModal();
+}
+function cancelarConclusao() {
+  if (conclusaoPendente)
+    conclusaoPendente.origem.appendChild(conclusaoPendente.card);
+  conclusaoPendente = null;
+  document.getElementById("concluir-manutencao").close();
+}
+async function confirmarConclusao(ev) {
+  ev.preventDefault();
+  if (!conclusaoPendente) return;
+  const { card, origem } = conclusaoPendente;
+  const resp = await postForm(`/manutencao/${card.dataset.manutencao}/concluir`,
+                              new FormData(ev.target));
+  if (!resp.ok) {
+    alert(await erroDe(resp, "Não foi possível concluir."));
+    origem.appendChild(card);
+    conclusaoPendente = null;
+    document.getElementById("concluir-manutencao").close();
+    return;
   }
   location.reload();
 }
